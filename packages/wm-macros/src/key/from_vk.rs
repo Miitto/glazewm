@@ -11,24 +11,21 @@ use crate::Os;
 fn to_match_arm(key: &Key, enum_attrs: &EnumAttr, os: Os) -> TokenStream {
   let ident = &key.ident;
   match &key.attrs {
-    super::VariantAttr::Wildcard => {
-      // If the key is a wildcard, we match it to the `Custom` variant.
-      quote! { _ => Self::Custom(vk)}
-    }
     super::VariantAttr::Key(key_attrs) => {
       let (value, prefix) = match os {
-        Os::Windows => (&key_attrs.key_codes.win, &enum_attrs.win_prefix),
-        Os::MacOS => {
-          (&key_attrs.key_codes.macos, &enum_attrs.macos_prefix)
-        }
+        Os::Windows => (&key_attrs.key_codes.win, &enum_attrs.win_enum),
+        Os::MacOS => (&key_attrs.key_codes.macos, &enum_attrs.macos_enum),
       };
 
       // Output the match arms.
       if let VkValue::Key(value) = value {
-        quote! {#prefix #value => Self::#ident}
+        quote! {#prefix::#value => Self::#ident}
       } else {
         quote! {}
       }
+    }
+    _ => {
+      quote! {}
     }
   }
 }
@@ -39,6 +36,9 @@ pub fn make_from_vk_impl(
   keys: &[Key],
   enum_attrs: &EnumAttr,
 ) -> TokenStream {
+  let win_prefix = &enum_attrs.win_enum;
+  let macos_prefix = &enum_attrs.macos_enum;
+
   let win_arms = keys
     .iter()
     .map(|key| to_match_arm(key, enum_attrs, Os::Windows))
@@ -52,14 +52,19 @@ pub fn make_from_vk_impl(
   quote! {
     #[cfg(target_os = "windows")]
     pub fn from_vk(vk: u16) -> Self {
-      match ::windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_KEY(vk) {
-        #(#win_arms),*
+      let res = #win_prefix::try_from(vk);
+      if let Ok(key) = res {
+        match key {
+          #(#win_arms),*
+        }
+      } else {
+        Self::Custom(vk)
       }
     }
 
     #[cfg(target_os = "macos")]
     pub fn from_vk(vk: u16) -> Self {
-      match vk {
+      match #macos_prefix(vk) {
         #(#mac_arms),*
       }
     }

@@ -14,12 +14,12 @@ use crate::common::{
 // Forking the stream to parse an ident and then check if it matches a
 // string.
 mod kw {
-  use crate::common::custom_keyword;
+  use crate::common::{custom_keyword, peekable::custom_punct};
 
   custom_keyword!(win);
   custom_keyword!(macos);
   custom_keyword!(Virt);
-  custom_keyword!(None);
+  custom_punct!(Never, !);
 }
 
 /// An enum variant attribute. Is either a KeyAttr (`#[key("string" |
@@ -139,12 +139,12 @@ impl syn::parse::Parse for VkValue {
     } else {
       // Handle the other two cases.
       input
-        .parse::<IfElse<kw::None, syn::Path>>()
+        .parse::<IfElse<kw::Never, syn::Path>>()
         .map(|if_else| match if_else {
           IfElse::If(_) => VkValue::None,
           IfElse::Else(path) => VkValue::Key(path),
         })
-        .add_context("Expected a key code, or `None` for no key code.")
+        .add_context("Expected a key code, or `!` for no key code.")
     }
   }
 }

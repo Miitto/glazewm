@@ -115,7 +115,7 @@ where
 }
 
 /// Custom keyword macro to define a syn custom keyword that also
-/// implements Peekable.
+/// implements SynPeek.
 macro_rules! custom_keyword {
   ($name:ident) => {
     syn::custom_keyword!($name);
@@ -133,6 +133,24 @@ macro_rules! custom_keyword {
 }
 pub(crate) use custom_keyword;
 
+/// Custum punctuation definition that also implements `SynPeek`.
+macro_rules! custom_punct {
+  ($name:ident, $($tokens:tt)*) => {
+    syn::custom_punctuation!($name, $($tokens)*);
+
+    impl $crate::common::peekable::SynPeek for $name {
+      fn peekable() -> impl syn::parse::Peek {
+        $name
+      }
+
+      fn display() -> &'static str {
+        crate::common::peekable::get_peek_display(Self::peekable())
+      }
+    }
+  };
+}
+pub(crate) use custom_punct;
+
 macro_rules! impl_syn_peek {
   ($($name:tt)+) => {
     impl SynPeek for $($name)+ {
@@ -149,6 +167,12 @@ macro_rules! impl_syn_peek {
 
 impl_syn_peek!(syn::Ident);
 impl_syn_peek!(syn::LitStr);
+impl_syn_peek!(syn::LitInt);
+impl_syn_peek!(syn::LitFloat);
+impl_syn_peek!(syn::LitBool);
+impl_syn_peek!(syn::LitByte);
+impl_syn_peek!(syn::LitByteStr);
+impl_syn_peek!(syn::LitChar);
 // TODO: Other syn types
 
 // Copied from syn::Token!

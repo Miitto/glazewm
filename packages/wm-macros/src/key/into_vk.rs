@@ -17,19 +17,17 @@ fn to_match_arm(key: &Key, enum_attrs: &EnumAttr, os: Os) -> TokenStream {
     }
     super::VariantAttr::Key(key_attrs) => {
       let (value, prefix) = match os {
-        Os::Windows => (&key_attrs.key_codes.win, &enum_attrs.win_prefix),
-        Os::MacOS => {
-          (&key_attrs.key_codes.macos, &enum_attrs.macos_prefix)
-        }
+        Os::Windows => (&key_attrs.key_codes.win, &enum_attrs.win_enum),
+        Os::MacOS => (&key_attrs.key_codes.macos, &enum_attrs.macos_enum),
       };
 
       // Output the match arms.
       match value {
         VkValue::Key(value) => {
-          quote! { Self::#ident => #prefix #value.0 }
+          quote! { Self::#ident => #prefix::#value as u16}
         }
         VkValue::Virt(value) => {
-          quote! { Self::#ident => #prefix #value.0 }
+          quote! { Self::#ident => #prefix::#value as u16 }
         }
         _ => quote! {},
       }

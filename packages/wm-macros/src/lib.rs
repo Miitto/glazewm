@@ -6,6 +6,8 @@ mod common;
 mod enum_from_inner;
 mod key;
 mod subenum;
+mod try_to_enum_discriminant;
+
 use proc_macro::TokenStream;
 
 mod prelude {
@@ -36,4 +38,9 @@ pub fn sub_enum(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(EnumFromInner)]
 pub fn enum_from_inner(input: TokenStream) -> TokenStream {
   enum_from_inner::enum_from_inner(input)
+}
+
+#[proc_macro_derive(TryToDiscriminant)]
+pub fn try_to_discriminant(input: TokenStream) -> TokenStream {
+  try_to_enum_discriminant::try_to_enum_discriminant(input)
 }

@@ -14,6 +14,8 @@ mod platform;
 mod single_instance;
 mod window_event_hook;
 
+mod windows;
+
 pub use com::*;
 pub use event_listener::*;
 pub use event_window::*;

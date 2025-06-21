@@ -1,10 +1,6 @@
 use syn::parse::ParseStream;
 
-use crate::common::{
-  branch::{IfElse, Unordered},
-  error_handling::ErrorContext,
-  named_parameter::NamedParameter,
-};
+use crate::common::{branch::Unordered, named_parameter::NamedParameter};
 
 /// Custom keywords used when parsing the enum attributes.
 // Custom keywords can be parsed and peeked, which is better than forking
@@ -12,60 +8,32 @@ use crate::common::{
 mod kw {
   use crate::common::custom_keyword;
 
-  custom_keyword!(win_prefix);
-  custom_keyword!(macos_prefix);
+  custom_keyword!(win);
+  custom_keyword!(macos);
   custom_keyword!(None);
 }
 
 /// Holds the attributes for an enum that contains platform-specific
 /// prefixes
 pub struct EnumAttr {
-  pub win_prefix: PlatformPrefix,
-  pub macos_prefix: PlatformPrefix,
-}
-
-pub enum PlatformPrefix {
-  None,
-  Some(syn::Path),
-}
-
-impl syn::parse::Parse for PlatformPrefix {
-  fn parse(input: ParseStream) -> syn::Result<Self> {
-    input.parse::<IfElse<kw::None, syn::Path>>()
-      .map(|if_else| match if_else {
-        IfElse::If(_) => PlatformPrefix::None,
-        IfElse::Else(path) => PlatformPrefix::Some(path),
-      })
-        .add_context("Expected a prefix for the platforms key codes, or `None` for no prefix.")
-  }
-}
-
-impl quote::ToTokens for PlatformPrefix {
-  fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-    match self {
-      PlatformPrefix::None => tokens.extend(quote::quote! {}),
-      PlatformPrefix::Some(prefix) => {
-        tokens.extend(quote::quote! { #prefix:: })
-      }
-    }
-  }
+  pub win_enum: syn::Type,
+  pub macos_enum: syn::Type,
 }
 
 // Parse the `#[key(...)]` attribute on the enum to extract the prefixes.
 impl syn::parse::Parse for EnumAttr {
   fn parse(input: ParseStream) -> syn::Result<Self> {
-    type WinPrefixParam = NamedParameter<kw::win_prefix, PlatformPrefix>;
-    type MacOSPrefixParam =
-      NamedParameter<kw::macos_prefix, PlatformPrefix>;
+    type WinPrefixParam = NamedParameter<kw::win, syn::Type>;
+    type MacOSPrefixParam = NamedParameter<kw::macos, syn::Type>;
 
-    let (win_prefix, macos_prefix) = input.parse::<Unordered<(WinPrefixParam, MacOSPrefixParam), syn::Token![,]>>()
+    let (win_enum, macos_enum) = input.parse::<Unordered<(WinPrefixParam, MacOSPrefixParam), syn::Token![,]>>()
       .map(|Unordered{items: (win_prefix, macos_prefix), ..}| {
         (win_prefix.param, macos_prefix.param)
       })?;
 
     Ok(EnumAttr {
-      win_prefix,
-      macos_prefix,
+      win_enum,
+      macos_enum,
     })
   }
 }
