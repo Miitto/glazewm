@@ -44,7 +44,7 @@ use wm_common::{
   Rect, RectDelta, WindowState,
 };
 
-use super::COM_INIT;
+use super::com::COM_INIT;
 use crate::interfaces::traits::{CommonNativeWindow, ZOrder};
 
 /// Magic number used to identify programmatic mouse inputs from our own
@@ -65,7 +65,6 @@ pub struct NativeWindow {
 
 impl CommonNativeWindow for NativeWindow {
   /// Creates a new `NativeWindow` instance with the given window handle.
-  #[must_use]
   fn new(handle: isize) -> Self {
     Self {
       handle,
@@ -77,6 +76,10 @@ impl CommonNativeWindow for NativeWindow {
       is_minimized: Memo::new(),
       is_maximized: Memo::new(),
     }
+  }
+
+  fn handle(&self) -> crate::WindowHandle {
+    self.handle
   }
 
   /// Gets the window's title. If the window is invalid, returns an empty
@@ -176,26 +179,6 @@ impl CommonNativeWindow for NativeWindow {
     Ok(is_visible && !self.is_cloaked()?)
   }
 
-  /// Whether the window is cloaked. For some UWP apps, `WS_VISIBLE` will
-  /// be present even if the window isn't actually visible. The
-  /// `DWMWA_CLOAKED` attribute is used to check whether these apps are
-  /// visible.
-  fn is_cloaked(&self) -> anyhow::Result<bool> {
-    let mut cloaked = 0u32;
-
-    unsafe {
-      #[allow(clippy::cast_possible_truncation)]
-      DwmGetWindowAttribute(
-        HWND(self.handle),
-        DWMWA_CLOAKED,
-        std::ptr::from_mut::<u32>(&mut cloaked).cast(),
-        std::mem::size_of::<u32>() as u32,
-      )
-    }?;
-
-    Ok(cloaked != 0)
-  }
-
   fn is_manageable(&self) -> anyhow::Result<bool> {
     // Ignore windows that are hidden.
     if !self.is_visible()? {
@@ -248,12 +231,6 @@ impl CommonNativeWindow for NativeWindow {
     self.is_minimized.update(Self::updated_is_minimized, self)
   }
 
-  /// Whether the window is minimized.
-  #[allow(clippy::unnecessary_wraps)]
-  fn updated_is_minimized(&self) -> anyhow::Result<bool> {
-    Ok(unsafe { IsIconic(HWND(self.handle)) }.as_bool())
-  }
-
   /// Whether the window is maximized.
   ///
   /// This value is lazily retrieved and cached after first retrieval.
@@ -268,20 +245,12 @@ impl CommonNativeWindow for NativeWindow {
     self.is_maximized.update(Self::updated_is_maximized, self)
   }
 
-  /// Whether the window is maximized.
-  #[allow(clippy::unnecessary_wraps)]
-  fn updated_is_maximized(&self) -> anyhow::Result<bool> {
-    Ok(unsafe { IsZoomed(HWND(self.handle)) }.as_bool())
-  }
-
   /// Whether the window has resize handles.
-  #[must_use]
   fn is_resizable(&self) -> bool {
     self.has_window_style(WS_THICKFRAME)
   }
 
   /// Whether the window is meant to be a popup window.
-  #[must_use]
   fn is_popup(&self) -> bool {
     self.has_window_style(WS_POPUP)
   }
@@ -408,20 +377,6 @@ impl CommonNativeWindow for NativeWindow {
     Ok(())
   }
 
-  fn add_window_style_ex(&self, style: WINDOW_EX_STYLE) {
-    let current_style =
-      unsafe { GetWindowLongPtrW(HWND(self.handle), GWL_EXSTYLE) };
-
-    #[allow(clippy::cast_possible_wrap)]
-    if current_style & style.0 as isize == 0 {
-      let new_style = current_style | style.0 as isize;
-
-      unsafe {
-        SetWindowLongPtrW(HWND(self.handle), GWL_EXSTYLE, new_style)
-      };
-    }
-  }
-
   fn adjust_transparency(
     &self,
     opacity_delta: &Delta<OpacityValue>,
@@ -491,34 +446,6 @@ impl CommonNativeWindow for NativeWindow {
       .update(Self::updated_frame_position, self)
   }
 
-  /// Gets the window's position, including the window's frame. Excludes
-  /// the window's shadow borders.
-  fn updated_frame_position(&self) -> anyhow::Result<Rect> {
-    let mut rect = RECT::default();
-
-    let dwm_res = unsafe {
-      #[allow(clippy::cast_possible_truncation)]
-      DwmGetWindowAttribute(
-        HWND(self.handle),
-        DWMWA_EXTENDED_FRAME_BOUNDS,
-        std::ptr::from_mut(&mut rect).cast(),
-        std::mem::size_of::<RECT>() as u32,
-      )
-    };
-
-    if let Ok(()) = dwm_res {
-      Ok(Rect::from_ltrb(
-        rect.left,
-        rect.top,
-        rect.right,
-        rect.bottom,
-      ))
-    } else {
-      warn!("Failed to get window's frame position. Falling back to border position.");
-      self.border_position()
-    }
-  }
-
   /// Gets the window's position, including the window's frame and
   /// shadow borders.
   ///
@@ -536,26 +463,6 @@ impl CommonNativeWindow for NativeWindow {
       .update(Self::updated_border_position, self)
   }
 
-  /// Gets the window's position, including the window's frame and
-  /// shadow borders.
-  fn updated_border_position(&self) -> anyhow::Result<Rect> {
-    let mut rect = RECT::default();
-
-    unsafe {
-      GetWindowRect(
-        HWND(self.handle),
-        std::ptr::from_mut(&mut rect).cast(),
-      )
-    }?;
-
-    Ok(Rect::from_ltrb(
-      rect.left,
-      rect.top,
-      rect.right,
-      rect.bottom,
-    ))
-  }
-
   /// Gets the delta between the window's frame and the window's border.
   /// This represents the size of a window's shadow borders.
   fn shadow_border_delta(&self) -> anyhow::Result<RectDelta> {
@@ -568,24 +475,6 @@ impl CommonNativeWindow for NativeWindow {
       LengthValue::from_px(border_pos.right - frame_pos.right),
       LengthValue::from_px(border_pos.bottom - frame_pos.bottom),
     ))
-  }
-
-  fn has_window_style(&self, style: WINDOW_STYLE) -> bool {
-    let current_style =
-      unsafe { GetWindowLongPtrW(HWND(self.handle), GWL_STYLE) };
-
-    #[allow(clippy::cast_possible_wrap)]
-    let style = style.0 as isize;
-    (current_style & style) != 0
-  }
-
-  fn has_window_style_ex(&self, style: WINDOW_EX_STYLE) -> bool {
-    let current_style =
-      unsafe { GetWindowLongPtrW(HWND(self.handle), GWL_EXSTYLE) };
-
-    #[allow(clippy::cast_possible_wrap)]
-    let style = style.0 as isize;
-    (current_style & style) != 0
   }
 
   fn restore_to_position(&self, rect: &Rect) -> anyhow::Result<()> {
@@ -868,6 +757,114 @@ impl CommonNativeWindow for NativeWindow {
     _ = self.set_taskbar_visibility(true);
     _ = self.set_border_color(None);
     _ = self.set_transparency(&OpacityValue::from_alpha(u8::MAX));
+  }
+}
+
+impl NativeWindow {
+  /// Whether the window is cloaked. For some UWP apps, `WS_VISIBLE` will
+  /// be present even if the window isn't actually visible. The
+  /// `DWMWA_CLOAKED` attribute is used to check whether these apps are
+  /// visible.
+  fn is_cloaked(&self) -> anyhow::Result<bool> {
+    let mut cloaked = 0u32;
+
+    unsafe {
+      #[allow(clippy::cast_possible_truncation)]
+      DwmGetWindowAttribute(
+        HWND(self.handle),
+        DWMWA_CLOAKED,
+        std::ptr::from_mut::<u32>(&mut cloaked).cast(),
+        std::mem::size_of::<u32>() as u32,
+      )
+    }?;
+
+    Ok(cloaked != 0)
+  }
+  /// Whether the window is minimized.
+  #[allow(clippy::unnecessary_wraps)]
+  fn updated_is_minimized(&self) -> anyhow::Result<bool> {
+    Ok(unsafe { IsIconic(HWND(self.handle)) }.as_bool())
+  }
+  /// Whether the window is maximized.
+  #[allow(clippy::unnecessary_wraps)]
+  fn updated_is_maximized(&self) -> anyhow::Result<bool> {
+    Ok(unsafe { IsZoomed(HWND(self.handle)) }.as_bool())
+  }
+  fn add_window_style_ex(&self, style: WINDOW_EX_STYLE) {
+    let current_style =
+      unsafe { GetWindowLongPtrW(HWND(self.handle), GWL_EXSTYLE) };
+
+    #[allow(clippy::cast_possible_wrap)]
+    if current_style & style.0 as isize == 0 {
+      let new_style = current_style | style.0 as isize;
+
+      unsafe {
+        SetWindowLongPtrW(HWND(self.handle), GWL_EXSTYLE, new_style)
+      };
+    }
+  }
+  /// Gets the window's position, including the window's frame. Excludes
+  /// the window's shadow borders.
+  fn updated_frame_position(&self) -> anyhow::Result<Rect> {
+    let mut rect = RECT::default();
+
+    let dwm_res = unsafe {
+      #[allow(clippy::cast_possible_truncation)]
+      DwmGetWindowAttribute(
+        HWND(self.handle),
+        DWMWA_EXTENDED_FRAME_BOUNDS,
+        std::ptr::from_mut(&mut rect).cast(),
+        std::mem::size_of::<RECT>() as u32,
+      )
+    };
+
+    if let Ok(()) = dwm_res {
+      Ok(Rect::from_ltrb(
+        rect.left,
+        rect.top,
+        rect.right,
+        rect.bottom,
+      ))
+    } else {
+      warn!("Failed to get window's frame position. Falling back to border position.");
+      self.border_position()
+    }
+  }
+  /// Gets the window's position, including the window's frame and
+  /// shadow borders.
+  fn updated_border_position(&self) -> anyhow::Result<Rect> {
+    let mut rect = RECT::default();
+
+    unsafe {
+      GetWindowRect(
+        HWND(self.handle),
+        std::ptr::from_mut(&mut rect).cast(),
+      )
+    }?;
+
+    Ok(Rect::from_ltrb(
+      rect.left,
+      rect.top,
+      rect.right,
+      rect.bottom,
+    ))
+  }
+  fn has_window_style(&self, style: WINDOW_STYLE) -> bool {
+    let current_style =
+      unsafe { GetWindowLongPtrW(HWND(self.handle), GWL_STYLE) };
+
+    #[allow(clippy::cast_possible_wrap)]
+    let style = style.0 as isize;
+    (current_style & style) != 0
+  }
+
+  fn has_window_style_ex(&self, style: WINDOW_EX_STYLE) -> bool {
+    let current_style =
+      unsafe { GetWindowLongPtrW(HWND(self.handle), GWL_EXSTYLE) };
+
+    #[allow(clippy::cast_possible_wrap)]
+    let style = style.0 as isize;
+    (current_style & style) != 0
   }
 }
 

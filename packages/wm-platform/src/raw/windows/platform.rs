@@ -1,8 +1,4 @@
-use std::{
-  os::windows::io::AsRawHandle,
-  path::{Path, PathBuf},
-  thread::JoinHandle,
-};
+use std::{os::windows::io::AsRawHandle, path::Path, thread::JoinHandle};
 
 use anyhow::{bail, Context};
 use windows::{
@@ -34,19 +30,19 @@ use windows::{
 };
 use wm_common::{ParsedConfig, Point};
 
-use super::{
-  native_monitor, native_window, EventListener, NativeMonitor,
-  NativeWindow, SingleInstance,
+use super::{native_monitor, native_window};
+use crate::{
+  CommonNativeMonitor as _, CommonNativeWindow as _, CommonPlatform,
+  EventListener, NativeMonitor, NativeWindow, SingleInstance,
 };
 
 pub type WindowProcedure = WNDPROC;
 
 pub struct Platform;
 
-impl Platform {
+impl CommonPlatform for Platform {
   /// Gets the `NativeWindow` instance of the currently focused window.
-  #[must_use]
-  pub fn foreground_window() -> NativeWindow {
+  fn foreground_window() -> NativeWindow {
     let handle = unsafe { GetForegroundWindow() };
     NativeWindow::new(handle.0)
   }
@@ -56,8 +52,7 @@ impl Platform {
   /// This is the explorer.exe wallpaper window (i.e. "Progman"). If
   /// explorer.exe isn't running, then default to the desktop window below
   /// the wallpaper window.
-  #[must_use]
-  pub fn desktop_window() -> NativeWindow {
+  fn desktop_window() -> NativeWindow {
     let handle = match unsafe { GetShellWindow() } {
       HWND(0) => unsafe { GetDesktopWindow() },
       handle => handle,
@@ -71,7 +66,7 @@ impl Platform {
   ///
   /// Note that this also ensures that the `NativeMonitor` instances have
   /// valid position values.
-  pub fn sorted_monitors() -> anyhow::Result<Vec<NativeMonitor>> {
+  fn sorted_monitors() -> anyhow::Result<Vec<NativeMonitor>> {
     let monitors = native_monitor::available_monitors()?;
 
     // Create a tuple of monitors and their rects.
@@ -101,8 +96,7 @@ impl Platform {
     )
   }
 
-  #[must_use]
-  pub fn nearest_monitor(window: &NativeWindow) -> NativeMonitor {
+  fn nearest_monitor(window: &NativeWindow) -> NativeMonitor {
     native_monitor::nearest_monitor(window.handle)
   }
 
@@ -111,7 +105,7 @@ impl Platform {
   /// Manageable windows are visible windows that the WM is most likely
   /// able to manage. Windows are returned in z-order (top to bottom),
   /// although the order is not guaranteed by the underlying API.
-  pub fn manageable_windows() -> anyhow::Result<Vec<NativeWindow>> {
+  fn manageable_windows() -> anyhow::Result<Vec<NativeWindow>> {
     Ok(
       native_window::available_windows()?
         .into_iter()
@@ -121,27 +115,25 @@ impl Platform {
   }
 
   /// Creates a new `EventListener` for the specified user config.
-  pub fn start_event_listener(
+  fn start_event_listener(
     config: &ParsedConfig,
   ) -> anyhow::Result<EventListener> {
     EventListener::start(config)
   }
 
   /// Creates a new `SingleInstance`.
-  pub fn new_single_instance() -> anyhow::Result<SingleInstance> {
+  fn new_single_instance() -> anyhow::Result<SingleInstance> {
     SingleInstance::new()
   }
 
   // Gets the root window of the specified window.
-  pub fn root_ancestor(
-    window: &NativeWindow,
-  ) -> anyhow::Result<NativeWindow> {
+  fn root_ancestor(window: &NativeWindow) -> anyhow::Result<NativeWindow> {
     let handle = unsafe { GetAncestor(HWND(window.handle), GA_ROOT) };
     Ok(NativeWindow::new(handle.0))
   }
 
   /// Sets the cursor position to the specified coordinates.
-  pub fn set_cursor_pos(x: i32, y: i32) -> anyhow::Result<()> {
+  fn set_cursor_pos(x: i32, y: i32) -> anyhow::Result<()> {
     unsafe {
       SetCursorPos(x, y)?;
     };
@@ -150,7 +142,7 @@ impl Platform {
   }
 
   /// Finds the window at the specified point in screen space.
-  pub fn window_from_point(point: &Point) -> anyhow::Result<NativeWindow> {
+  fn window_from_point(point: &Point) -> anyhow::Result<NativeWindow> {
     let point = POINT {
       x: point.x,
       y: point.y,
@@ -161,7 +153,7 @@ impl Platform {
   }
 
   /// Gets the mouse position in screen space.
-  pub fn mouse_position() -> anyhow::Result<Point> {
+  fn mouse_position() -> anyhow::Result<Point> {
     let mut point = POINT { x: 0, y: 0 };
     unsafe { GetCursorPos(&mut point) }?;
 
@@ -171,50 +163,11 @@ impl Platform {
     })
   }
 
-  /// Creates a hidden message window.
-  ///
-  /// Returns a handle to the created window.
-  pub fn create_message_window(
-    window_procedure: WindowProcedure,
-  ) -> anyhow::Result<isize> {
-    let wnd_class = WNDCLASSW {
-      lpszClassName: w!("MessageWindow"),
-      style: CS_HREDRAW | CS_VREDRAW,
-      lpfnWndProc: window_procedure,
-      ..Default::default()
-    };
-
-    unsafe { RegisterClassW(&wnd_class) };
-
-    let handle = unsafe {
-      CreateWindowExW(
-        WINDOW_EX_STYLE::default(),
-        w!("MessageWindow"),
-        w!("MessageWindow"),
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT,
-        CW_USEDEFAULT,
-        CW_USEDEFAULT,
-        CW_USEDEFAULT,
-        None,
-        None,
-        wnd_class.hInstance,
-        None,
-      )
-    };
-
-    if handle.0 == 0 {
-      bail!("Creation of message window failed.");
-    }
-
-    Ok(handle.0)
-  }
-
   /// Starts a message loop on the current thread.
   ///
   /// This function will block until the message loop is killed. Use
   /// `Platform::kill_message_loop` to terminate the message loop.
-  pub fn run_message_loop() {
+  fn run_message_loop() {
     let mut msg = MSG::default();
 
     loop {
@@ -232,7 +185,7 @@ impl Platform {
   /// Runs a single cycle of a message loop on the current thread.
   ///
   /// Is non-blocking and returns immediately if there are no messages.
-  pub fn run_message_cycle() -> anyhow::Result<()> {
+  fn run_message_cycle() -> anyhow::Result<()> {
     let mut msg = MSG::default();
 
     let has_message =
@@ -253,9 +206,7 @@ impl Platform {
   }
 
   /// Gracefully terminates the message loop on the given thread.
-  pub fn kill_message_loop<T>(
-    thread: &JoinHandle<T>,
-  ) -> anyhow::Result<()> {
+  fn kill_message_loop<T>(thread: &JoinHandle<T>) -> anyhow::Result<()> {
     let handle = thread.as_raw_handle();
     let handle = HANDLE(handle as isize);
     let thread_id = unsafe { GetThreadId(handle) };
@@ -275,7 +226,7 @@ impl Platform {
   /// Gets whether window transition animations are currently enabled.
   ///
   /// Note that this is a global system setting.
-  pub fn window_animations_enabled() -> anyhow::Result<bool> {
+  fn window_animations_enabled() -> anyhow::Result<bool> {
     let mut animation_info = ANIMATIONINFO {
       #[allow(clippy::cast_possible_truncation)]
       cbSize: std::mem::size_of::<ANIMATIONINFO>() as u32,
@@ -297,9 +248,7 @@ impl Platform {
   /// Enables or disables window transition animations.
   ///
   /// Note that this is a global system setting.
-  pub fn set_window_animations_enabled(
-    enable: bool,
-  ) -> anyhow::Result<()> {
+  fn set_window_animations_enabled(enable: bool) -> anyhow::Result<()> {
     let mut animation_info = ANIMATIONINFO {
       #[allow(clippy::cast_possible_truncation)]
       cbSize: std::mem::size_of::<ANIMATIONINFO>() as u32,
@@ -319,7 +268,7 @@ impl Platform {
   }
 
   /// Opens File Explorer at the specified path.
-  pub fn open_file_explorer(path: &PathBuf) -> anyhow::Result<()> {
+  fn open_file_explorer(path: &Path) -> anyhow::Result<()> {
     let normalized_path = std::fs::canonicalize(path)?;
 
     std::process::Command::new("explorer")
@@ -356,7 +305,7 @@ impl Platform {
   ///   assert_eq!(args, r#"--cd=C:\Users\larsb\.glaze-wm"#);
   /// # Ok::<(), anyhow::Error>(())
   /// ```
-  pub fn parse_command(command: &str) -> anyhow::Result<(String, String)> {
+  fn parse_command(command: &str) -> anyhow::Result<(String, String)> {
     // Expand environment variables in the command string.
     let expanded_command = {
       let wide_command = to_wide(command);
@@ -428,7 +377,7 @@ impl Platform {
   }
 
   /// Runs the specified program with the given arguments.
-  pub fn run_command(
+  fn run_command(
     program: &str,
     args: &str,
     hide_window: bool,
@@ -466,7 +415,7 @@ impl Platform {
     Ok(())
   }
 
-  pub fn show_error_dialog(title: &str, message: &str) {
+  fn show_error_dialog(title: &str, message: &str) {
     let title_wide = to_wide(title);
     let message_wide = to_wide(message);
 
@@ -478,6 +427,47 @@ impl Platform {
         MB_ICONERROR | MB_OK | MB_SYSTEMMODAL,
       );
     }
+  }
+}
+
+impl Platform {
+  /// Creates a hidden message window.
+  ///
+  /// Returns a handle to the created window.
+  pub(crate) fn create_message_window(
+    window_procedure: WindowProcedure,
+  ) -> anyhow::Result<isize> {
+    let wnd_class = WNDCLASSW {
+      lpszClassName: w!("MessageWindow"),
+      style: CS_HREDRAW | CS_VREDRAW,
+      lpfnWndProc: window_procedure,
+      ..Default::default()
+    };
+
+    unsafe { RegisterClassW(&wnd_class) };
+
+    let handle = unsafe {
+      CreateWindowExW(
+        WINDOW_EX_STYLE::default(),
+        w!("MessageWindow"),
+        w!("MessageWindow"),
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        None,
+        None,
+        wnd_class.hInstance,
+        None,
+      )
+    };
+
+    if handle.0 == 0 {
+      bail!("Creation of message window failed.");
+    }
+
+    Ok(handle.0)
   }
 }
 

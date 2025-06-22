@@ -17,6 +17,8 @@ use windows::{
 };
 use wm_common::Rect;
 
+use crate::CommonNativeMonitor;
+
 #[derive(Clone, Debug)]
 pub struct NativeMonitor {
   pub handle: isize,
@@ -34,43 +36,48 @@ struct MonitorInfo {
   scale_factor: f32,
 }
 
-impl NativeMonitor {
-  #[must_use]
-  pub fn new(handle: isize) -> Self {
+impl CommonNativeMonitor for NativeMonitor {
+  fn new(handle: isize) -> Self {
     Self {
       handle,
       info: OnceCell::new(),
     }
   }
 
-  pub fn device_name(&self) -> anyhow::Result<&String> {
+  fn handle(&self) -> crate::MonitorHandle {
+    self.handle
+  }
+
+  fn device_name(&self) -> anyhow::Result<&String> {
     self.monitor_info().map(|info| &info.device_name)
   }
 
-  pub fn device_path(&self) -> anyhow::Result<Option<&String>> {
+  fn device_path(&self) -> anyhow::Result<Option<&String>> {
     self.monitor_info().map(|info| info.device_path.as_ref())
   }
 
-  pub fn hardware_id(&self) -> anyhow::Result<Option<&String>> {
+  fn hardware_id(&self) -> anyhow::Result<Option<&String>> {
     self.monitor_info().map(|info| info.hardware_id.as_ref())
   }
 
-  pub fn rect(&self) -> anyhow::Result<&Rect> {
+  fn rect(&self) -> anyhow::Result<&Rect> {
     self.monitor_info().map(|info| &info.rect)
   }
 
-  pub fn working_rect(&self) -> anyhow::Result<&Rect> {
+  fn working_rect(&self) -> anyhow::Result<&Rect> {
     self.monitor_info().map(|info| &info.working_rect)
   }
 
-  pub fn dpi(&self) -> anyhow::Result<u32> {
+  fn dpi(&self) -> anyhow::Result<u32> {
     self.monitor_info().map(|info| info.dpi)
   }
 
-  pub fn scale_factor(&self) -> anyhow::Result<f32> {
+  fn scale_factor(&self) -> anyhow::Result<f32> {
     self.monitor_info().map(|info| info.scale_factor)
   }
+}
 
+impl NativeMonitor {
   fn monitor_info(&self) -> anyhow::Result<&MonitorInfo> {
     self.info.get_or_try_init(|| {
       let mut monitor_info = MONITORINFOEXW {

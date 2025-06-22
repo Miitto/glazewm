@@ -12,14 +12,10 @@ pub struct Hook(HHOOK);
 impl Hook {
   pub fn start() -> anyhow::Result<Self> {
     let hook = unsafe {
-      SetWindowsHookExW(WH_KEYBOARD_LL, Some(Self::hook_proc), None, 0)
+      SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_hook_proc), None, 0)?
     };
 
-    if hook.is_invalid() {
-      Err(anyhow::anyhow!("Failed to set keyboard hook"))
-    } else {
-      Ok(Self(hook))
-    }
+    Ok(Self(hook))
   }
 
   pub fn stop(self) -> anyhow::Result<()> {

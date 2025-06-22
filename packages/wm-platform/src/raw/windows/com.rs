@@ -1,3 +1,5 @@
+#![allow(non_camel_case_types)]
+
 use anyhow::Context;
 use windows::{
   core::{ComInterface, IUnknown, IUnknown_Vtbl, GUID, HRESULT},
@@ -23,7 +25,7 @@ thread_local! {
 }
 
 pub struct ComInit {
-  service_provider: Option<IServiceProvider>
+  service_provider: Option<IServiceProvider>,
   application_view_collection: Option<IApplicationViewCollection>,
   taskbar_list: Option<ITaskbarList2>,
 }
@@ -60,14 +62,6 @@ impl ComInit {
       application_view_collection,
       taskbar_list,
     }
-  }
-
-  /// Returns an instance of `IServiceProvider`.
-  pub fn service_provider(&self) -> anyhow::Result<&IServiceProvider> {
-    self
-      .service_provider
-      .as_ref()
-      .context("Unable to create `IServiceProvider` instance.")
   }
 
   /// Returns an instance of `IApplicationViewCollection`.

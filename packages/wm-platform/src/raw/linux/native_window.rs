@@ -135,7 +135,7 @@ impl crate::interfaces::traits::CommonNativeWindow for NativeWindow {
 
   fn restore_to_position(
     &self,
-    rect: wm_common::Rect,
+    rect: &wm_common::Rect,
   ) -> anyhow::Result<()> {
     todo!()
   }

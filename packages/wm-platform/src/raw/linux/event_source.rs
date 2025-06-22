@@ -6,16 +6,19 @@ impl crate::interfaces::CommonEventSource for EventSource {
     keybinds: &[wm_common::KeybindingConfig],
     focus_follows_cursor: bool,
   ) -> anyhow::Result<Self> {
-    todo!("Implement Linux event source logic here");
+    todo!();
   }
 
   fn update(
-    &self,
+    &mut self,
     keybindings: &[wm_common::KeybindingConfig],
     enable_mouse_events: bool,
   ) {
-    // Implement logic to update the event source with new keybindings and
-    // paused state
-    todo!("Implement Linux event source update logic here");
+    todo!();
+  }
+
+  fn destroy(&mut self) -> anyhow::Result<()> {
+    // Implement logic to clean up the event source
+    todo!();
   }
 }

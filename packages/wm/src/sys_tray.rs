@@ -53,11 +53,10 @@ impl SystemTray {
         &exit_item,
       ])?;
 
-      // FIXME: Icon::from_resource() is not available on all platforms.
       #[cfg(target_os = "windows")]
       {
-        let icon = Icon::from_resource(IDI_ICON, None)?;
-        let _tray_icon = TrayIconBuilder::new()
+        let icon = tray_icon::Icon::from_resource(IDI_ICON, None)?;
+        let _tray_icon = tray_icon::TrayIconBuilder::new()
           .with_menu(Box::new(tray_menu))
           .with_tooltip(format!("GlazeWM v{}", env!("VERSION_NUMBER")))
           .with_icon(icon)

@@ -33,8 +33,12 @@ use windows::Win32::{
 use wm_common::{KeybindingConfig, Point};
 
 use super::{
-  KeyboardHook, MouseMoveEvent, Platform, PlatformEvent, WindowEventHook,
-  FOREGROUND_INPUT_IDENTIFIER,
+  native_window::FOREGROUND_INPUT_IDENTIFIER,
+  window_event_hook::WindowEventHook,
+};
+use crate::{
+  CommonEventSource, CommonPlatform as _, KeyboardHook, MouseMoveEvent,
+  Platform, PlatformEvent,
 };
 
 /// Global instance of sender for platform events.
@@ -74,15 +78,15 @@ pub struct EventWindow {
   window_thread: Option<JoinHandle<anyhow::Result<()>>>,
 }
 
-impl EventWindow {
+impl CommonEventSource for EventWindow {
   /// Creates an instance of `EventWindow`. Spawns a hidden window and
   /// emits platform events.
   ///
   /// Uses global state (e.g. `PLATFORM_EVENT_TX`) and should thus only
   /// ever be instantiated once in the application's lifetime.
-  pub fn new(
+  fn new(
     event_tx: &mpsc::UnboundedSender<PlatformEvent>,
-    keybindings: &Vec<KeybindingConfig>,
+    keybindings: &[KeybindingConfig],
     enable_mouse_events: bool,
   ) -> anyhow::Result<Self> {
     let keyboard_hook = KeyboardHook::new(keybindings, event_tx.clone())?;
@@ -137,9 +141,9 @@ impl EventWindow {
     })
   }
 
-  pub fn update(
+  fn update(
     &mut self,
-    keybindings: &Vec<KeybindingConfig>,
+    keybindings: &[KeybindingConfig],
     enable_mouse_events: bool,
   ) {
     self.keyboard_hook.update(keybindings);
@@ -147,7 +151,7 @@ impl EventWindow {
   }
 
   /// Destroys the event window and stops the message loop.
-  pub fn destroy(&mut self) -> anyhow::Result<()> {
+  fn destroy(&mut self) -> anyhow::Result<()> {
     info!("Shutting down event window.");
 
     // Wait for the spawned thread to finish.

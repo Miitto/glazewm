@@ -13,7 +13,8 @@ use crate::{interfaces::RawHook, key::Key};
 /// Global instance of `KeyboardHook`.
 ///
 /// For use with hook procedure.
-pub(crate) static KEYBOARD_HOOK: OnceLock<Arc<KeyboardHook>> = OnceLock::new();
+pub(crate) static KEYBOARD_HOOK: OnceLock<Arc<KeyboardHook>> =
+  OnceLock::new();
 
 /// Available modifier keys.
 const MODIFIER_KEYS: [Key; 12] = [
@@ -54,7 +55,7 @@ pub struct KeyboardHook {
 impl KeyboardHook {
   /// Creates an instance of `KeyboardHook`.
   pub fn new(
-    keybindings: &Vec<KeybindingConfig>,
+    keybindings: &[KeybindingConfig],
     event_tx: mpsc::UnboundedSender<PlatformEvent>,
   ) -> anyhow::Result<Arc<Self>> {
     let keyboard_hook = Arc::new(Self {
@@ -90,7 +91,7 @@ impl KeyboardHook {
   /// # Panics
   ///
   /// If the internal mutex is poisoned.
-  pub fn update(&self, keybindings: &Vec<KeybindingConfig>) {
+  pub fn update(&self, keybindings: &[KeybindingConfig]) {
     *self.keybindings_by_trigger_key.lock().unwrap() =
       Self::keybindings_by_trigger_key(keybindings);
   }
@@ -111,7 +112,7 @@ impl KeyboardHook {
   }
 
   fn keybindings_by_trigger_key(
-    keybindings: &Vec<KeybindingConfig>,
+    keybindings: &[KeybindingConfig],
   ) -> HashMap<Key, Vec<ActiveKeybinding>> {
     let mut keybinding_map = HashMap::new();
 
@@ -152,7 +153,7 @@ impl KeyboardHook {
   ///
   /// Returns `true` if the event should be blocked and not sent to other
   /// applications.
-  fn handle_key_event(&self, vk_code: u16) -> bool {
+  pub(crate) fn handle_key_event(&self, vk_code: u16) -> bool {
     let pressed_key = Key::from_vk(vk_code);
     match self
       .keybindings_by_trigger_key

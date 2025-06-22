@@ -55,10 +55,6 @@ impl CommonPlatform for Platform {
     todo!()
   }
 
-  fn create_message_window() -> anyhow::Result<isize> {
-    todo!()
-  }
-
   fn run_message_loop() {
     todo!()
   }
@@ -97,7 +93,7 @@ impl CommonPlatform for Platform {
     todo!()
   }
 
-  fn show_error_dialog(title: &str, message: &str) -> anyhow::Result<()> {
+  fn show_error_dialog(title: &str, message: &str) {
     todo!()
   }
 }

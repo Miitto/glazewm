@@ -259,7 +259,3 @@ impl WinKey {
 
   pub const OemFjJisho: WinKey = WinKey::OemNecEqual;
 }
-
-impl WinKey {
-  pub fn is_down_raw(&self) -> bool {}
-}

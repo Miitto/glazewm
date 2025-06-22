@@ -1,7 +1,5 @@
 use anyhow::Result;
 
-use super::NativeWindow;
-
 pub trait IsKeyDownRaw {
   fn is_down_raw(&self) -> bool;
 }
@@ -17,10 +15,12 @@ where
   ) -> Result<Self>;
 
   fn update(
-    &self,
+    &mut self,
     keybindings: &[wm_common::KeybindingConfig],
     enable_mouse_events: bool,
   );
+
+  fn destroy(&mut self) -> Result<()>;
 }
 
 pub trait CommonSingleInstance
@@ -81,7 +81,7 @@ pub trait CommonNativeWindow: std::fmt::Debug + Clone + PartialEq {
   fn border_position(&self) -> Result<wm_common::Rect>;
   fn refresh_border_position(&self) -> Result<wm_common::Rect>;
   fn shadow_border_delta(&self) -> Result<wm_common::RectDelta>;
-  fn restore_to_position(&self, rect: wm_common::Rect) -> Result<()>;
+  fn restore_to_position(&self, rect: &wm_common::Rect) -> Result<()>;
   fn maximize(&self) -> Result<()>;
   fn minimize(&self) -> Result<()>;
   fn close(&self) -> Result<()>;
@@ -127,8 +127,6 @@ pub trait CommonPlatform {
     point: &wm_common::Point,
   ) -> Result<crate::NativeWindow>;
   fn mouse_position() -> Result<wm_common::Point>;
-  // FIXME: Not sure what to do with this yet.
-  fn create_message_window() -> Result<isize>;
   fn run_message_loop();
   fn run_message_cycle() -> Result<()>;
   fn kill_message_loop<T>(
@@ -136,14 +134,14 @@ pub trait CommonPlatform {
   ) -> Result<()>;
   fn window_animations_enabled() -> Result<bool>;
   fn set_window_animations_enabled(enabled: bool) -> Result<()>;
-  fn open_file_explorer(path: &std::path::PathBuf) -> Result<()>;
+  fn open_file_explorer(path: &std::path::Path) -> Result<()>;
   fn parse_command(command: &str) -> Result<(String, String)>;
   fn run_command(
     program: &str,
     args: &str,
     hide_window: bool,
   ) -> Result<()>;
-  fn show_error_dialog(title: &str, message: &str) -> Result<()>;
+  fn show_error_dialog(title: &str, message: &str);
 }
 
 pub trait CommonNativeMonitor:

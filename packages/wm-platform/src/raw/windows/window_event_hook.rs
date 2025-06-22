@@ -18,7 +18,7 @@ use windows::Win32::{
   },
 };
 
-use super::{NativeWindow, PlatformEvent};
+use crate::{CommonNativeWindow as _, NativeWindow, PlatformEvent};
 
 /// Global instance of `WindowEventHook`.
 ///
