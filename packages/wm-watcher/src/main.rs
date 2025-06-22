@@ -12,7 +12,7 @@ use anyhow::{bail, Context};
 use tracing::info;
 use wm_common::{ClientResponseData, ContainerDto, WindowDto, WmEvent};
 use wm_ipc_client::IpcClient;
-use wm_platform::NativeWindow;
+use wm_platform::{CommonNativeWindow as _, NativeWindow};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -82,7 +82,7 @@ async fn query_initial_windows(
 
 async fn watch_managed_handles(
   client: &mut IpcClient,
-  handles: &mut Vec<isize>,
+  handles: &mut Vec<wm_platform::WindowHandle>,
 ) -> anyhow::Result<()> {
   let subscription_message =
     "sub -e window_managed window_unmanaged application_exiting";

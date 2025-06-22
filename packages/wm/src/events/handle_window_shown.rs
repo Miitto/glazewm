@@ -1,6 +1,6 @@
 use tracing::info;
 use wm_common::DisplayState;
-use wm_platform::NativeWindow;
+use wm_platform::{CommonNativeWindow as _, NativeWindow};
 
 use crate::{
   commands::window::manage_window, traits::WindowGetters,

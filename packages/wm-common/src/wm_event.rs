@@ -1,6 +1,12 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+#[cfg(target_os = "linux")]
+type WindowHandle = u16;
+
+#[cfg(target_os = "windows")]
+type WindowHandle = isize;
+
 use crate::{
   dtos::ContainerDto,
   parsed_config::{BindingModeConfig, ParsedConfig},
@@ -48,7 +54,7 @@ pub enum WmEvent {
   },
   WindowUnmanaged {
     unmanaged_id: Uuid,
-    unmanaged_handle: isize,
+    unmanaged_handle: WindowHandle,
   },
   WorkspaceActivated {
     activated_workspace: ContainerDto,

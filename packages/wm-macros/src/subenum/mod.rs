@@ -15,21 +15,6 @@ mod kw {
   crate::common::custom_keyword!(None);
 }
 
-/// List of identifiers that are separated by commas.
-#[derive(Debug, Clone, Default)]
-struct PathList(pub Vec<syn::Path>);
-
-impl syn::parse::Parse for PathList {
-  fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-    let list = input
-      .parse_terminated(syn::Path::parse, syn::Token![,])?
-      .iter()
-      .cloned()
-      .collect::<Vec<_>>();
-    Ok(PathList(list))
-  }
-}
-
 pub fn sub_enum(
   input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
@@ -200,7 +185,7 @@ struct SubEnum<'a> {
   pub variants: Vec<Variant>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct Variant {
   pub name: syn::Ident,
   pub contained: syn::Type,

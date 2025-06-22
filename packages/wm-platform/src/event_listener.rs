@@ -3,7 +3,9 @@ use wm_common::{
   BindingModeConfig, InvokeCommand, KeybindingConfig, ParsedConfig, Point,
 };
 
-use super::{EventWindow, NativeWindow};
+use crate::{
+  interfaces::traits::CommonEventSource, EventSource, NativeWindow,
+};
 
 #[derive(Debug)]
 pub enum PlatformEvent {
@@ -34,7 +36,7 @@ pub struct MouseMoveEvent {
 
 pub struct EventListener {
   pub event_rx: UnboundedReceiver<PlatformEvent>,
-  event_window: EventWindow,
+  event_window: EventSource,
 }
 
 impl EventListener {
@@ -44,7 +46,7 @@ impl EventListener {
   pub fn start(config: &ParsedConfig) -> anyhow::Result<Self> {
     let (event_tx, event_rx) = mpsc::unbounded_channel();
 
-    let event_window = EventWindow::new(
+    let event_window = EventSource::new(
       &event_tx,
       &config.keybindings,
       config.general.focus_follows_cursor,

@@ -1,6 +1,8 @@
 use anyhow::Context;
 use tracing::info;
-use wm_platform::Platform;
+use wm_platform::{
+  CommonNativeMonitor as _, CommonPlatform as _, Platform,
+};
 
 use crate::{
   commands::monitor::{
@@ -37,7 +39,7 @@ pub fn handle_display_settings_changed(
     let found_monitor = pending_monitors
       .iter()
       .find_map(|monitor| {
-        if monitor.native().handle == native_monitor.handle {
+        if monitor.native().handle() == native_monitor.handle() {
           return Some(monitor);
         }
 

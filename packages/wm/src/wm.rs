@@ -6,7 +6,7 @@ use wm_common::{
   FloatingStateConfig, FullscreenStateConfig, InvokeCommand, LengthValue,
   RectDelta, TitleBarVisibility, WindowState, WmEvent,
 };
-use wm_platform::PlatformEvent;
+use wm_platform::{CommonNativeWindow as _, PlatformEvent};
 
 use crate::{
   commands::{

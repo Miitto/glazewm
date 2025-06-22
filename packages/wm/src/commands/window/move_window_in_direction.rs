@@ -1,5 +1,6 @@
 use anyhow::Context;
 use wm_common::{Direction, Rect, TilingDirection, WindowState};
+use wm_platform::{CommonNativeMonitor as _, CommonNativeWindow as _};
 
 use crate::{
   commands::container::{

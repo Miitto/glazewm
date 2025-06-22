@@ -20,6 +20,7 @@ mod prelude {
 enum Os {
   Windows,
   MacOS,
+  Linux,
 }
 
 // Proc macro functions *must* live in lib.rs, not in a submodule.

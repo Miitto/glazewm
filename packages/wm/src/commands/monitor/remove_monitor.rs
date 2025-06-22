@@ -1,6 +1,7 @@
 use anyhow::Context;
 use tracing::info;
 use wm_common::WmEvent;
+use wm_platform::CommonNativeMonitor as _;
 
 use crate::{
   commands::{

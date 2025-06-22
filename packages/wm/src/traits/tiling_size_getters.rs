@@ -3,6 +3,7 @@ use std::cell::Ref;
 use ambassador::delegatable_trait;
 use anyhow::Context;
 use wm_common::{GapsConfig, TilingDirection};
+use wm_platform::CommonNativeMonitor as _;
 
 use super::{CommonGetters, PositionGetters, TilingDirectionGetters};
 use crate::models::{Container, DirectionContainer, TilingContainer};

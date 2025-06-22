@@ -23,7 +23,7 @@ thread_local! {
 }
 
 pub struct ComInit {
-  service_provider: Option<IServiceProvider>,
+  service_provider: Option<IServiceProvider>
   application_view_collection: Option<IApplicationViewCollection>,
   taskbar_list: Option<ITaskbarList2>,
 }

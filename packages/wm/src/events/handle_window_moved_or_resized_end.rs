@@ -4,7 +4,9 @@ use wm_common::{
   try_warn, ActiveDragOperation, LengthValue, Point, Rect,
   TilingDirection, WindowState,
 };
-use wm_platform::{NativeWindow, Platform};
+use wm_platform::{
+  CommonNativeWindow as _, CommonPlatform as _, NativeWindow, Platform,
+};
 
 use crate::{
   commands::{

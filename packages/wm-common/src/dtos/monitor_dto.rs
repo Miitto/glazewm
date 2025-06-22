@@ -21,7 +21,7 @@ pub struct MonitorDto {
   pub y: i32,
   pub dpi: u32,
   pub scale_factor: f32,
-  pub handle: isize,
+  pub handle: crate::MonitorHandle,
   pub device_name: String,
   pub device_path: Option<String>,
   pub hardware_id: Option<String>,

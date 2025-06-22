@@ -45,18 +45,11 @@ use wm_common::{
 };
 
 use super::COM_INIT;
+use crate::interfaces::traits::{CommonNativeWindow, ZOrder};
 
 /// Magic number used to identify programmatic mouse inputs from our own
 /// process.
 pub const FOREGROUND_INPUT_IDENTIFIER: u32 = 6379;
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum ZOrder {
-  Normal,
-  AfterWindow(isize),
-  Top,
-  TopMost,
-}
 
 #[derive(Clone, Debug)]
 pub struct NativeWindow {
@@ -70,10 +63,10 @@ pub struct NativeWindow {
   is_maximized: Memo<bool>,
 }
 
-impl NativeWindow {
+impl CommonNativeWindow for NativeWindow {
   /// Creates a new `NativeWindow` instance with the given window handle.
   #[must_use]
-  pub fn new(handle: isize) -> Self {
+  fn new(handle: isize) -> Self {
     Self {
       handle,
       title: Memo::new(),
@@ -90,12 +83,12 @@ impl NativeWindow {
   /// string.
   ///
   /// This value is lazily retrieved and cached after first retrieval.
-  pub fn title(&self) -> anyhow::Result<String> {
+  fn title(&self) -> anyhow::Result<String> {
     self.title.get_or_init(Self::updated_title, self)
   }
 
   /// Updates the cached window title.
-  pub fn refresh_title(&self) -> anyhow::Result<String> {
+  fn refresh_title(&self) -> anyhow::Result<String> {
     self.title.update(Self::updated_title, self)
   }
 
@@ -113,7 +106,7 @@ impl NativeWindow {
   /// Gets the process name associated with the window.
   ///
   /// This value is lazily retrieved and cached after first retrieval.
-  pub fn process_name(&self) -> anyhow::Result<String> {
+  fn process_name(&self) -> anyhow::Result<String> {
     self
       .process_name
       .get_or_init(Self::updated_process_name, self)
@@ -157,7 +150,7 @@ impl NativeWindow {
   /// Gets the class name of the window.
   ///
   /// This value is lazily retrieved and cached after first retrieval.
-  pub fn class_name(&self) -> anyhow::Result<String> {
+  fn class_name(&self) -> anyhow::Result<String> {
     self.class_name.get_or_init(Self::updated_class_name, self)
   }
 
@@ -176,7 +169,7 @@ impl NativeWindow {
   }
 
   /// Whether the window is actually visible.
-  pub fn is_visible(&self) -> anyhow::Result<bool> {
+  fn is_visible(&self) -> anyhow::Result<bool> {
     let is_visible =
       unsafe { IsWindowVisible(HWND(self.handle)) }.as_bool();
 
@@ -203,7 +196,7 @@ impl NativeWindow {
     Ok(cloaked != 0)
   }
 
-  pub fn is_manageable(&self) -> anyhow::Result<bool> {
+  fn is_manageable(&self) -> anyhow::Result<bool> {
     // Ignore windows that are hidden.
     if !self.is_visible()? {
       return Ok(false);
@@ -244,14 +237,14 @@ impl NativeWindow {
   /// Whether the window is minimized.
   ///
   /// This value is lazily retrieved and cached after first retrieval.
-  pub fn is_minimized(&self) -> anyhow::Result<bool> {
+  fn is_minimized(&self) -> anyhow::Result<bool> {
     self
       .is_minimized
       .get_or_init(Self::updated_is_minimized, self)
   }
 
   /// Updates the cached minimized status.
-  pub fn refresh_is_minimized(&self) -> anyhow::Result<bool> {
+  fn refresh_is_minimized(&self) -> anyhow::Result<bool> {
     self.is_minimized.update(Self::updated_is_minimized, self)
   }
 
@@ -264,14 +257,14 @@ impl NativeWindow {
   /// Whether the window is maximized.
   ///
   /// This value is lazily retrieved and cached after first retrieval.
-  pub fn is_maximized(&self) -> anyhow::Result<bool> {
+  fn is_maximized(&self) -> anyhow::Result<bool> {
     self
       .is_maximized
       .get_or_init(Self::updated_is_maximized, self)
   }
 
   /// Updates the cached maximized status.
-  pub fn refresh_is_maximized(&self) -> anyhow::Result<bool> {
+  fn refresh_is_maximized(&self) -> anyhow::Result<bool> {
     self.is_maximized.update(Self::updated_is_maximized, self)
   }
 
@@ -283,23 +276,20 @@ impl NativeWindow {
 
   /// Whether the window has resize handles.
   #[must_use]
-  pub fn is_resizable(&self) -> bool {
+  fn is_resizable(&self) -> bool {
     self.has_window_style(WS_THICKFRAME)
   }
 
   /// Whether the window is meant to be a popup window.
   #[must_use]
-  pub fn is_popup(&self) -> bool {
+  fn is_popup(&self) -> bool {
     self.has_window_style(WS_POPUP)
   }
 
   /// Whether the window is fullscreen.
   ///
   /// Returns `false` if the window is maximized.
-  pub fn is_fullscreen(
-    &self,
-    monitor_rect: &Rect,
-  ) -> anyhow::Result<bool> {
+  fn is_fullscreen(&self, monitor_rect: &Rect) -> anyhow::Result<bool> {
     if self.is_maximized()? {
       return Ok(false);
     }
@@ -315,7 +305,7 @@ impl NativeWindow {
     )
   }
 
-  pub fn set_foreground(&self) -> anyhow::Result<()> {
+  fn set_foreground(&self) -> anyhow::Result<()> {
     let input = [INPUT {
       r#type: INPUT_MOUSE,
       Anonymous: INPUT_0 {
@@ -339,10 +329,7 @@ impl NativeWindow {
     Ok(())
   }
 
-  pub fn set_border_color(
-    &self,
-    color: Option<&Color>,
-  ) -> anyhow::Result<()> {
+  fn set_border_color(&self, color: Option<&Color>) -> anyhow::Result<()> {
     let bgr = match color {
       Some(color) => color.to_bgr()?,
       None => DWMWA_COLOR_NONE,
@@ -361,7 +348,7 @@ impl NativeWindow {
     Ok(())
   }
 
-  pub fn set_corner_style(
+  fn set_corner_style(
     &self,
     corner_style: &CornerStyle,
   ) -> anyhow::Result<()> {
@@ -385,10 +372,7 @@ impl NativeWindow {
     Ok(())
   }
 
-  pub fn set_title_bar_visibility(
-    &self,
-    visible: bool,
-  ) -> anyhow::Result<()> {
+  fn set_title_bar_visibility(&self, visible: bool) -> anyhow::Result<()> {
     let style = unsafe { GetWindowLongPtrW(HWND(self.handle), GWL_STYLE) };
 
     #[allow(clippy::cast_possible_wrap)]
@@ -438,7 +422,7 @@ impl NativeWindow {
     }
   }
 
-  pub fn adjust_transparency(
+  fn adjust_transparency(
     &self,
     opacity_delta: &Delta<OpacityValue>,
   ) -> anyhow::Result<()> {
@@ -469,7 +453,7 @@ impl NativeWindow {
     self.set_transparency(&OpacityValue::from_alpha(target_alpha))
   }
 
-  pub fn set_transparency(
+  fn set_transparency(
     &self,
     opacity_value: &OpacityValue,
   ) -> anyhow::Result<()> {
@@ -492,14 +476,14 @@ impl NativeWindow {
   /// the window's shadow borders.
   ///
   /// This value is lazily retrieved and cached after first retrieval.
-  pub fn frame_position(&self) -> anyhow::Result<Rect> {
+  fn frame_position(&self) -> anyhow::Result<Rect> {
     self
       .frame_position
       .get_or_init(Self::updated_frame_position, self)
   }
 
   /// Updates the cached frame position.
-  pub fn refresh_frame_position(&self) -> anyhow::Result<Rect> {
+  fn refresh_frame_position(&self) -> anyhow::Result<Rect> {
     _ = self.refresh_border_position()?;
 
     self
@@ -539,14 +523,14 @@ impl NativeWindow {
   /// shadow borders.
   ///
   /// This value is lazily retrieved and cached after first retrieval.
-  pub fn border_position(&self) -> anyhow::Result<Rect> {
+  fn border_position(&self) -> anyhow::Result<Rect> {
     self
       .border_position
       .get_or_init(Self::updated_border_position, self)
   }
 
   /// Updates the cached border position.
-  pub fn refresh_border_position(&self) -> anyhow::Result<Rect> {
+  fn refresh_border_position(&self) -> anyhow::Result<Rect> {
     self
       .border_position
       .update(Self::updated_border_position, self)
@@ -574,7 +558,7 @@ impl NativeWindow {
 
   /// Gets the delta between the window's frame and the window's border.
   /// This represents the size of a window's shadow borders.
-  pub fn shadow_border_delta(&self) -> anyhow::Result<RectDelta> {
+  fn shadow_border_delta(&self) -> anyhow::Result<RectDelta> {
     let border_pos = self.border_position()?;
     let frame_pos = self.frame_position()?;
 
@@ -604,7 +588,7 @@ impl NativeWindow {
     (current_style & style) != 0
   }
 
-  pub fn restore_to_position(&self, rect: &Rect) -> anyhow::Result<()> {
+  fn restore_to_position(&self, rect: &Rect) -> anyhow::Result<()> {
     let placement = WINDOWPLACEMENT {
       #[allow(clippy::cast_possible_truncation)]
       length: std::mem::size_of::<WINDOWPLACEMENT>() as u32,
@@ -623,17 +607,17 @@ impl NativeWindow {
     Ok(())
   }
 
-  pub fn maximize(&self) -> anyhow::Result<()> {
+  fn maximize(&self) -> anyhow::Result<()> {
     unsafe { ShowWindowAsync(HWND(self.handle), SW_MAXIMIZE).ok() }?;
     Ok(())
   }
 
-  pub fn minimize(&self) -> anyhow::Result<()> {
+  fn minimize(&self) -> anyhow::Result<()> {
     unsafe { ShowWindowAsync(HWND(self.handle), SW_MINIMIZE).ok() }?;
     Ok(())
   }
 
-  pub fn close(&self) -> anyhow::Result<()> {
+  fn close(&self) -> anyhow::Result<()> {
     unsafe {
       SendNotifyMessageW(HWND(self.handle), WM_CLOSE, None, None)
     }?;
@@ -641,7 +625,7 @@ impl NativeWindow {
     Ok(())
   }
 
-  pub fn set_visible(
+  fn set_visible(
     &self,
     visible: bool,
     hide_method: &HideMethod,
@@ -658,17 +642,17 @@ impl NativeWindow {
     }
   }
 
-  pub fn show(&self) -> anyhow::Result<()> {
+  fn show(&self) -> anyhow::Result<()> {
     unsafe { ShowWindowAsync(HWND(self.handle), SW_SHOWNA) }.ok()?;
     Ok(())
   }
 
-  pub fn hide(&self) -> anyhow::Result<()> {
+  fn hide(&self) -> anyhow::Result<()> {
     unsafe { ShowWindowAsync(HWND(self.handle), SW_HIDE) }.ok()?;
     Ok(())
   }
 
-  pub fn set_cloaked(&self, cloaked: bool) -> anyhow::Result<()> {
+  fn set_cloaked(&self, cloaked: bool) -> anyhow::Result<()> {
     COM_INIT.with(|com_init| -> anyhow::Result<()> {
       let view_collection = com_init.application_view_collection()?;
 
@@ -691,10 +675,7 @@ impl NativeWindow {
   /// Hidden windows (`SW_HIDE`) cannot be forced to be shown in the
   /// taskbar. Cloaked windows are normally always shown in the taskbar,
   /// but can be manually toggled.
-  pub fn set_taskbar_visibility(
-    &self,
-    visible: bool,
-  ) -> anyhow::Result<()> {
+  fn set_taskbar_visibility(&self, visible: bool) -> anyhow::Result<()> {
     COM_INIT.with(|com_init| -> anyhow::Result<()> {
       let taskbar_list = com_init.taskbar_list()?;
 
@@ -708,7 +689,7 @@ impl NativeWindow {
     })
   }
 
-  pub fn set_position(
+  fn set_position(
     &self,
     state: &WindowState,
     rect: &Rect,
@@ -821,7 +802,7 @@ impl NativeWindow {
   ///
   /// Causes the native Windows taskbar to be moved to the bottom of the
   /// z-order when this window is active.
-  pub fn mark_fullscreen(&self, fullscreen: bool) -> anyhow::Result<()> {
+  fn mark_fullscreen(&self, fullscreen: bool) -> anyhow::Result<()> {
     COM_INIT.with(|com_init| -> anyhow::Result<()> {
       let taskbar_list = com_init.taskbar_list()?;
 
@@ -833,7 +814,7 @@ impl NativeWindow {
     })
   }
 
-  pub fn set_z_order(&self, z_order: &ZOrder) -> anyhow::Result<()> {
+  fn set_z_order(&self, z_order: &ZOrder) -> anyhow::Result<()> {
     let z_order = match z_order {
       ZOrder::TopMost => HWND_TOPMOST,
       ZOrder::Top => HWND_TOP,
@@ -879,7 +860,7 @@ impl NativeWindow {
     Ok(())
   }
 
-  pub fn cleanup(&self) {
+  fn cleanup(&self) {
     if let Err(err) = self.show() {
       warn!("Failed to show window: {:?}", err);
     }

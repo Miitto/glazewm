@@ -1,5 +1,5 @@
 use tracing::info;
-use wm_platform::Platform;
+use wm_platform::{CommonPlatform as _, Platform};
 
 pub fn shell_exec(command: &str, hide_window: bool) -> anyhow::Result<()> {
   let (program, args) = Platform::parse_command(command)?;

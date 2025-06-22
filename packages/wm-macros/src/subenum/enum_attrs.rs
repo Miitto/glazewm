@@ -1,14 +1,5 @@
-use syn::spanned::Spanned;
-
-use super::{PathList, kw};
-use crate::{
-  common::{
-    branch::{Optional, Ordered, Unordered},
-    lookahead::PeekThenAdvance,
-    parenthesized::Parenthesized,
-  },
-  prelude::*,
-};
+use super::kw;
+use crate::common::{branch::Ordered, lookahead::PeekThenAdvance};
 
 pub fn collect_sub_enums<'a>(
   attrs: impl Iterator<Item = &'a syn::MetaList>,

@@ -1,6 +1,24 @@
 #![warn(clippy::all, clippy::pedantic)]
 #![allow(clippy::missing_errors_doc)]
 
+#[cfg(target_os = "linux")]
+type WindowHandle = u16;
+
+#[cfg(target_os = "windows")]
+type WindowHandle = isize;
+
+#[cfg(target_os = "macos")]
+type WindowHandle = u32;
+
+#[cfg(target_os = "linux")]
+type MonitorHandle = u16;
+
+#[cfg(target_os = "windows")]
+type MonitorHandle = isize;
+
+#[cfg(target_os = "macos")]
+type MonitorHandle = u32;
+
 mod active_drag;
 mod app_command;
 mod color;

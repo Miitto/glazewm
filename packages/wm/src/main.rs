@@ -19,7 +19,7 @@ use tracing_subscriber::{
   layer::SubscriberExt,
 };
 use wm_common::{AppCommand, InvokeCommand, Verbosity, WmEvent};
-use wm_platform::Platform;
+use wm_platform::{CommonPlatform as _, Platform};
 
 use crate::{
   ipc_server::IpcServer, sys_tray::SystemTray, user_config::UserConfig,

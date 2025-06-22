@@ -4,7 +4,9 @@ use wm_common::{
   try_warn, ActiveDrag, ActiveDragOperation, FloatingStateConfig,
   FullscreenStateConfig, Rect, WindowState,
 };
-use wm_platform::NativeWindow;
+use wm_platform::{
+  CommonNativeMonitor as _, CommonNativeWindow as _, NativeWindow,
+};
 
 use crate::{
   commands::{

@@ -5,7 +5,7 @@ use wm_common::{
   ActiveDrag, DisplayState, LengthValue, Rect, RectDelta,
   WindowRuleConfig, WindowState,
 };
-use wm_platform::NativeWindow;
+use wm_platform::{CommonNativeWindow as _, NativeWindow};
 
 use crate::user_config::UserConfig;
 

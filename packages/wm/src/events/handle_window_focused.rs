@@ -1,7 +1,7 @@
 use anyhow::Context;
 use tracing::info;
 use wm_common::{DisplayState, WindowRuleEvent, WmEvent};
-use wm_platform::{NativeWindow, Platform};
+use wm_platform::{CommonPlatform as _, NativeWindow, Platform};
 
 use crate::{
   commands::{

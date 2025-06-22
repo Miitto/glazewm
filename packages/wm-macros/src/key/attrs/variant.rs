@@ -18,6 +18,7 @@ mod kw {
 
   custom_keyword!(win);
   custom_keyword!(macos);
+  custom_keyword!(linux);
   custom_keyword!(Virt);
   custom_punct!(Never, !);
 }
@@ -81,6 +82,7 @@ impl syn::parse::Parse for KeyAttr {
 pub struct PlatformKeyCodes {
   pub win: VkValue,
   pub macos: VkValue,
+  pub linux: VkValue,
 }
 
 impl syn::parse::Parse for PlatformKeyCodes {
@@ -90,17 +92,18 @@ impl syn::parse::Parse for PlatformKeyCodes {
   fn parse(input: ParseStream) -> syn::Result<Self> {
     type WinParam = NamedParameter<kw::win, VkValue>;
     type MacOSParam = NamedParameter<kw::macos, VkValue>;
+    type LinuxParam = NamedParameter<kw::linux, VkValue>;
 
-    let (win, macos) = input
-      .parse::<Unordered<(WinParam, MacOSParam), Token![,]>>()
+    let (win, macos, linux) = input
+      .parse::<Unordered<(WinParam, MacOSParam, LinuxParam), Token![,]>>()
       .map(
         |Unordered {
-           items: (win, macos),
+           items: (win, macos, linux),
            ..
-         }| (win.param, macos.param),
+         }| (win.param, macos.param, linux.param),
       )?;
 
-    Ok(PlatformKeyCodes { win, macos })
+    Ok(PlatformKeyCodes { win, macos, linux })
   }
 }
 

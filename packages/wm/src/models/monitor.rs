@@ -7,7 +7,7 @@ use std::{
 use anyhow::Context;
 use uuid::Uuid;
 use wm_common::{ContainerDto, MonitorDto, Rect};
-use wm_platform::NativeMonitor;
+use wm_platform::{CommonNativeMonitor as _, NativeMonitor};
 
 use crate::{
   impl_common_getters, impl_container_debug,
@@ -101,7 +101,7 @@ impl Monitor {
       y: rect.y(),
       dpi: self.native().dpi()?,
       scale_factor: self.native().scale_factor()?,
-      handle: self.native().handle,
+      handle: self.native().handle(),
       device_name: self.native().device_name()?.clone(),
       device_path: self.native().device_path()?.cloned(),
       hardware_id: self.native().hardware_id()?.cloned(),
@@ -131,7 +131,7 @@ impl std::fmt::Display for Monitor {
     write!(
       f,
       "Monitor(handle={}, device_name={}, device_path={:?}, hardware_id={:?})",
-      native.handle, device_name, device_path, hardware_id,
+      native.handle(), device_name, device_path, hardware_id,
     )
   }
 }

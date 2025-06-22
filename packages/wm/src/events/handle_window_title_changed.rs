@@ -1,6 +1,6 @@
 use tracing::info;
 use wm_common::{try_warn, WindowRuleEvent};
-use wm_platform::NativeWindow;
+use wm_platform::{CommonNativeWindow as _, NativeWindow};
 
 use crate::{
   commands::window::run_window_rules, traits::WindowGetters,

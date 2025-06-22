@@ -7,7 +7,9 @@ use wm_common::{
   CornerStyle, CursorJumpTrigger, DisplayState, HideMethod, OpacityValue,
   UniqueExt, WindowEffectConfig, WindowState, WmEvent,
 };
-use wm_platform::{Platform, ZOrder};
+use wm_platform::{
+  CommonNativeWindow as _, CommonPlatform as _, Platform, ZOrder,
+};
 
 use crate::{
   models::{Container, WindowContainer},
@@ -222,7 +224,7 @@ fn redraw_containers(
           if window.id() == focused_descendant.id() {
             ZOrder::Normal
           } else {
-            ZOrder::AfterWindow(focused_descendant.native().handle)
+            ZOrder::AfterWindow(focused_descendant.native().handle())
           }
         } else {
           ZOrder::Normal

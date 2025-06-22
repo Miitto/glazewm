@@ -7,7 +7,10 @@ use uuid::Uuid;
 use wm_common::{
   BindingModeConfig, Direction, Point, WindowState, WmEvent,
 };
-use wm_platform::{NativeMonitor, NativeWindow, Platform};
+use wm_platform::{
+  CommonNativeMonitor as _, CommonNativeWindow as _, CommonPlatform as _,
+  NativeMonitor, NativeWindow, Platform,
+};
 
 use crate::{
   commands::{

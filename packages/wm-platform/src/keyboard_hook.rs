@@ -5,22 +5,15 @@ use std::{
 
 use tokio::sync::mpsc;
 use tracing::warn;
-use windows::Win32::{
-  Foundation::{LPARAM, LRESULT, WPARAM},
-  UI::WindowsAndMessaging::{
-    CallNextHookEx, SetWindowsHookExW, UnhookWindowsHookEx, HHOOK,
-    KBDLLHOOKSTRUCT, WH_KEYBOARD_LL, WM_KEYDOWN, WM_SYSKEYDOWN,
-  },
-};
 use wm_common::KeybindingConfig;
 
 use super::PlatformEvent;
-use crate::key::Key;
+use crate::{interfaces::RawHook, key::Key};
 
 /// Global instance of `KeyboardHook`.
 ///
 /// For use with hook procedure.
-static KEYBOARD_HOOK: OnceLock<Arc<KeyboardHook>> = OnceLock::new();
+pub(crate) static KEYBOARD_HOOK: OnceLock<Arc<KeyboardHook>> = OnceLock::new();
 
 /// Available modifier keys.
 const MODIFIER_KEYS: [Key; 12] = [
@@ -50,7 +43,7 @@ pub struct KeyboardHook {
   event_tx: mpsc::UnboundedSender<PlatformEvent>,
 
   /// Handle to the keyboard hook.
-  hook: Arc<Mutex<HHOOK>>,
+  hook: Arc<Mutex<Option<RawHook>>>,
 
   /// Active keybindings grouped by trigger key. The trigger key is the
   /// final key in a key combination.
@@ -66,7 +59,7 @@ impl KeyboardHook {
   ) -> anyhow::Result<Arc<Self>> {
     let keyboard_hook = Arc::new(Self {
       event_tx,
-      hook: Arc::new(Mutex::new(HHOOK::default())),
+      hook: Arc::new(Mutex::new(None)),
       keybindings_by_trigger_key: Arc::new(Mutex::new(
         Self::keybindings_by_trigger_key(keybindings),
       )),
@@ -87,9 +80,7 @@ impl KeyboardHook {
   ///
   /// If the internal mutex is poisoned.
   pub fn start(&self) -> anyhow::Result<()> {
-    *self.hook.lock().unwrap() = unsafe {
-      SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_hook_proc), None, 0)
-    }?;
+    *self.hook.lock().unwrap() = Some(RawHook::start()?);
 
     Ok(())
   }
@@ -110,8 +101,13 @@ impl KeyboardHook {
   ///
   /// If the internal mutex is poisoned.
   pub fn stop(&self) -> anyhow::Result<()> {
-    unsafe { UnhookWindowsHookEx(*self.hook.lock().unwrap()) }?;
-    Ok(())
+    let hook = self.hook.lock().unwrap().take();
+
+    if let Some(hook) = hook {
+      hook.stop()
+    } else {
+      Err(anyhow::anyhow!("Keyboard hook is not running."))
+    }
   }
 
   fn keybindings_by_trigger_key(
@@ -235,36 +231,4 @@ impl KeyboardHook {
       }
     }
   }
-}
-
-extern "system" fn keyboard_hook_proc(
-  code: i32,
-  wparam: WPARAM,
-  lparam: LPARAM,
-) -> LRESULT {
-  #[allow(clippy::cast_possible_truncation)]
-  let should_ignore = code != 0
-    || !(wparam.0 as u32 == WM_KEYDOWN
-      || wparam.0 as u32 == WM_SYSKEYDOWN);
-
-  // If the code is less than zero, the hook procedure must pass the hook
-  // notification directly to other applications. We also only care about
-  // keydown events.
-  if should_ignore {
-    return unsafe { CallNextHookEx(None, code, wparam, lparam) };
-  }
-
-  // Get struct with keyboard input event.
-  let input = unsafe { *(lparam.0 as *const KBDLLHOOKSTRUCT) };
-
-  if let Some(hook) = KEYBOARD_HOOK.get() {
-    #[allow(clippy::cast_possible_truncation)]
-    let should_block = hook.handle_key_event(input.vkCode as u16);
-
-    if should_block {
-      return LRESULT(1);
-    }
-  }
-
-  unsafe { CallNextHookEx(None, code, wparam, lparam) }
 }

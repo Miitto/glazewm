@@ -235,6 +235,7 @@ pub enum WinKey {
   None = 255u16,
 }
 
+// Aliases for keys that have duplicate key codes
 #[allow(non_upper_case_globals, dead_code)]
 impl WinKey {
   pub const DbeAlphanumeric: WinKey = WinKey::OemAttn;
@@ -257,4 +258,8 @@ impl WinKey {
   pub const HANJA: WinKey = WinKey::Kanji;
 
   pub const OemFjJisho: WinKey = WinKey::OemNecEqual;
+}
+
+impl WinKey {
+  pub fn is_down_raw(&self) -> bool {}
 }

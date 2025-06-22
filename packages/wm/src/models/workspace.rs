@@ -10,6 +10,7 @@ use wm_common::{
   ContainerDto, GapsConfig, Rect, TilingDirection, WorkspaceConfig,
   WorkspaceDto,
 };
+use wm_platform::CommonNativeMonitor as _;
 
 use crate::{
   impl_common_getters, impl_container_debug,

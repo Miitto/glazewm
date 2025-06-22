@@ -5,6 +5,7 @@ use wm_common::{
   InvokeCommand, MatchType, ParsedConfig, WindowMatchConfig,
   WindowRuleConfig, WindowRuleEvent, WorkspaceConfig,
 };
+use wm_platform::CommonNativeWindow as _;
 
 use crate::{
   models::{Monitor, WindowContainer, Workspace},

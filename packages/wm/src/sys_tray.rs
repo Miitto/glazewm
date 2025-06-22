@@ -3,11 +3,10 @@ use std::{path::Path, thread::JoinHandle, time::Duration};
 use anyhow::Context;
 use tokio::sync::mpsc;
 use tracing::{info, warn};
-use tray_icon::{
-  menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem},
-  Icon, TrayIconBuilder,
+use tray_icon::menu::{
+  CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem,
 };
-use wm_platform::Platform;
+use wm_platform::{CommonPlatform as _, Platform};
 
 /// Ordinal to `IDI_ICON` definition in embedded resource file.
 const IDI_ICON: u16 = 32512;
@@ -54,12 +53,16 @@ impl SystemTray {
         &exit_item,
       ])?;
 
-      let icon = Icon::from_resource(IDI_ICON, None)?;
-      let _tray_icon = TrayIconBuilder::new()
-        .with_menu(Box::new(tray_menu))
-        .with_tooltip(format!("GlazeWM v{}", env!("VERSION_NUMBER")))
-        .with_icon(icon)
-        .build()?;
+      // FIXME: Icon::from_resource() is not available on all platforms.
+      #[cfg(target_os = "windows")]
+      {
+        let icon = Icon::from_resource(IDI_ICON, None)?;
+        let _tray_icon = TrayIconBuilder::new()
+          .with_menu(Box::new(tray_menu))
+          .with_tooltip(format!("GlazeWM v{}", env!("VERSION_NUMBER")))
+          .with_icon(icon)
+          .build()?;
+      }
 
       let menu_event_rx = MenuEvent::receiver();
 
@@ -105,6 +108,8 @@ impl SystemTray {
 
     // Wait for the spawned thread to finish.
     if let Some(icon_thread) = self.icon_thread.take() {
+      // FIXME: Still not sure how to deal with JoinHandle's between
+      // platforms.
       Platform::kill_message_loop(&icon_thread)?;
 
       icon_thread

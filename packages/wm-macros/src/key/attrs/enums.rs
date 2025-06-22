@@ -10,6 +10,7 @@ mod kw {
 
   custom_keyword!(win);
   custom_keyword!(macos);
+  custom_keyword!(linux);
   custom_keyword!(None);
 }
 
@@ -18,6 +19,7 @@ mod kw {
 pub struct EnumAttr {
   pub win_enum: syn::Type,
   pub macos_enum: syn::Type,
+  pub linux_enum: syn::Type,
 }
 
 // Parse the `#[key(...)]` attribute on the enum to extract the prefixes.
@@ -25,15 +27,26 @@ impl syn::parse::Parse for EnumAttr {
   fn parse(input: ParseStream) -> syn::Result<Self> {
     type WinPrefixParam = NamedParameter<kw::win, syn::Type>;
     type MacOSPrefixParam = NamedParameter<kw::macos, syn::Type>;
+    type LinuxPrefixParam = NamedParameter<kw::linux, syn::Type>;
 
-    let (win_enum, macos_enum) = input.parse::<Unordered<(WinPrefixParam, MacOSPrefixParam), syn::Token![,]>>()
-      .map(|Unordered{items: (win_prefix, macos_prefix), ..}| {
-        (win_prefix.param, macos_prefix.param)
-      })?;
+    let (win_enum, macos_enum, linux_enum) = input
+      .parse::<Unordered<
+        (WinPrefixParam, MacOSPrefixParam, LinuxPrefixParam),
+        syn::Token![,],
+      >>()
+      .map(
+        |Unordered {
+           items: (win_enum, macos_enum, linux_enum),
+           ..
+         }| {
+          (win_enum.param, macos_enum.param, linux_enum.param)
+        },
+      )?;
 
     Ok(EnumAttr {
       win_enum,
       macos_enum,
+      linux_enum,
     })
   }
 }

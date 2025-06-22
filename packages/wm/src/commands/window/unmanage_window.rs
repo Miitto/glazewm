@@ -1,5 +1,6 @@
 use anyhow::Context;
 use wm_common::{WindowState, WmEvent};
+use wm_platform::CommonNativeWindow as _;
 
 use crate::{
   commands::container::{
@@ -33,7 +34,7 @@ pub fn unmanage_window(
 
   state.emit_event(WmEvent::WindowUnmanaged {
     unmanaged_id: window.id(),
-    unmanaged_handle: window.native().handle,
+    unmanaged_handle: window.native().handle(),
   });
 
   // Reassign focus to suitable target.

@@ -10,7 +10,7 @@ use wm_common::{
   ActiveDrag, ContainerDto, Direction, DisplayState, GapsConfig, Rect,
   RectDelta, TilingDirection, WindowRuleConfig, WindowState,
 };
-use wm_platform::NativeWindow;
+use wm_platform::{CommonNativeWindow as _, NativeWindow};
 
 #[allow(clippy::wildcard_imports)]
 use crate::{
@@ -114,7 +114,10 @@ impl std::fmt::Display for WindowContainer {
     write!(
       f,
       "Window(hwnd={}, process={}, class={}, title={})",
-      native.handle, process, class, title,
+      native.handle(),
+      process,
+      class,
+      title,
     )
   }
 }

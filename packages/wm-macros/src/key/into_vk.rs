@@ -19,6 +19,7 @@ fn to_match_arm(key: &Key, enum_attrs: &EnumAttr, os: Os) -> TokenStream {
       let (value, prefix) = match os {
         Os::Windows => (&key_attrs.key_codes.win, &enum_attrs.win_enum),
         Os::MacOS => (&key_attrs.key_codes.macos, &enum_attrs.macos_enum),
+        Os::Linux => (&key_attrs.key_codes.linux, &enum_attrs.linux_enum),
       };
 
       // Output the match arms.
@@ -51,6 +52,11 @@ pub fn make_into_vk_impl(
     .map(|key| to_match_arm(key, enum_attrs, Os::MacOS))
     .filter(|arm| !arm.is_empty());
 
+  let linux_arms = keys
+    .iter()
+    .map(|key| to_match_arm(key, enum_attrs, Os::Linux))
+    .filter(|arm| !arm.is_empty());
+
   quote! {
     #[cfg(target_os = "windows")]
     pub fn into_vk(self) -> u16 {
@@ -69,7 +75,15 @@ pub fn make_into_vk_impl(
       }
     }
 
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    #[cfg(target_os = "linux")]
+    pub fn into_vk(self) -> u16 {
+      match self {
+        #(#linux_arms,)*
+        _ => { unreachable!("Key not found in linux VK mapping"); }
+      }
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     pub fn into_vk(self) -> u16 {
       compile_error!("`into_vk` is not supported on this OS at this time.");
       return 0; // This line is unreachable, but needed to satisfy the function signature.

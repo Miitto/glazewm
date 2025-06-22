@@ -1,5 +1,5 @@
 use anyhow::Context;
-use wm_platform::{MouseMoveEvent, Platform};
+use wm_platform::{CommonPlatform as _, MouseMoveEvent, Platform};
 
 use crate::{
   commands::container::set_focused_descendant, traits::CommonGetters,

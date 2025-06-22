@@ -1,6 +1,6 @@
 use tracing::info;
 use wm_common::{try_warn, WindowState};
-use wm_platform::NativeWindow;
+use wm_platform::{CommonNativeWindow as _, NativeWindow};
 
 use crate::{
   commands::window::update_window_state, traits::WindowGetters,
