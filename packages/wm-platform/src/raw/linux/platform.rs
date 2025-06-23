@@ -77,7 +77,7 @@ impl CommonPlatform for Platform {
     todo!()
   }
 
-  fn open_file_explorer(path: &std::path::PathBuf) -> anyhow::Result<()> {
+  fn open_file_explorer(path: &std::path::Path) -> anyhow::Result<()> {
     todo!()
   }
 
