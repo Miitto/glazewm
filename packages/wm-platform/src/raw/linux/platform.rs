@@ -1,4 +1,4 @@
-use crate::CommonPlatform;
+use crate::{CommonPlatform, CommonSingleInstance as _, SingleInstance};
 
 pub struct Platform;
 
@@ -32,7 +32,7 @@ impl CommonPlatform for Platform {
   }
 
   fn new_single_instance() -> anyhow::Result<crate::SingleInstance> {
-    todo!()
+    SingleInstance::new()
   }
 
   fn root_ancestor(
