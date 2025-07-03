@@ -57,13 +57,13 @@ impl Platform {
   /// explorer.exe isn't running, then default to the desktop window below
   /// the wallpaper window.
   #[must_use]
-  pub fn desktop_window() -> NativeWindow {
+  pub fn desktop_window() -> crate::NativeWindow {
     let handle = match unsafe { GetShellWindow() } {
       HWND(0) => unsafe { GetDesktopWindow() },
       handle => handle,
     };
 
-    NativeWindow::new(handle.0)
+    crate::NativeWindow::new(handle.0)
   }
 
   /// Gets a vector of available monitors as `NativeMonitor` instances

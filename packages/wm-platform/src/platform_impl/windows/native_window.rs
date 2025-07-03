@@ -47,18 +47,13 @@ use wm_common::{
 };
 
 use super::COM_INIT;
+use crate::ZOrder;
 
 /// Magic number used to identify programmatic mouse inputs from our own
 /// process.
 pub const FOREGROUND_INPUT_IDENTIFIER: u32 = 6379;
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum ZOrder {
-  Normal,
-  AfterWindow(isize),
-  Top,
-  TopMost,
-}
+pub type WindowHandle = isize;
 
 #[derive(Clone, Debug)]
 pub struct NativeWindow {

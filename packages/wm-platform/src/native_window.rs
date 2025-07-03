@@ -8,6 +8,8 @@ use wm_common::{
   Rect, RectDelta, WindowState,
 };
 
+use crate::platform_impl::{self, WindowHandle};
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ZOrder {
   Normal,
@@ -24,9 +26,15 @@ pub struct NativeWindow {
 impl NativeWindow {
   /// Creates a new `NativeWindow` instance with the given window handle.
   #[must_use]
-  pub fn new(handle: isize, event_loop: &EventLoop) -> Self {
-    let inner = platform_impl::NativeWindow::new(handle, event_loop);
+  pub fn new(handle: WindowHandle) -> Self {
+    let inner = platform_impl::NativeWindow::new(handle);
     Self { inner }
+  }
+
+  #[must_use]
+  #[inline]
+  pub fn handle(&self) -> WindowHandle {
+    self.inner.handle
   }
 
   /// Gets the window's title. If the window is invalid, returns an empty
@@ -68,7 +76,7 @@ impl NativeWindow {
 
 impl PartialEq for NativeWindow {
   fn eq(&self, other: &Self) -> bool {
-    self.handle == other.handle
+    self.handle() == other.handle()
   }
 }
 

@@ -19,31 +19,34 @@ use windows::Win32::{
 };
 
 use super::{NativeWindow, PlatformEvent};
+use crate::WindowEvent;
 
 /// Global instance of `WindowEventHook`.
 ///
 /// For use with hook procedure.
-static WIN_EVENT_HOOK: OnceLock<Arc<WindowEventHook>> = OnceLock::new();
+static WIN_EVENT_TX: OnceLock<
+  tokio::sync::mpsc::UnboundedSender<WindowEvent>,
+> = OnceLock::new();
 
 #[derive(Debug)]
 pub struct WindowEventHook {
-  event_tx: mpsc::UnboundedSender<PlatformEvent>,
+  event_rx: mpsc::UnboundedReceiver<WindowEvent>,
   hook_handles: Arc<Mutex<Vec<HWINEVENTHOOK>>>,
 }
 
 impl WindowEventHook {
   /// Creates an instance of `WindowEventHook`.
-  pub fn new(
-    event_tx: mpsc::UnboundedSender<PlatformEvent>,
-  ) -> anyhow::Result<Arc<Self>> {
-    let win_event_hook = Arc::new(Self {
-      event_tx,
-      hook_handles: Arc::new(Mutex::new(Vec::new())),
-    });
+  pub fn new() -> anyhow::Result<Self> {
+    let (tx, rx) = mpsc::unbounded_channel::<WindowEvent>();
 
-    WIN_EVENT_HOOK.set(win_event_hook.clone()).map_err(|_| {
-      anyhow::anyhow!("Window event hook already running.")
+    WIN_EVENT_TX.set(tx).map_err(|_| {
+      anyhow::anyhow!("Failed to set global window event sender")
     })?;
+
+    let win_event_hook = Self {
+      event_rx: rx,
+      hook_handles: Arc::new(Mutex::new(Vec::new())),
+    };
 
     Ok(win_event_hook)
   }
