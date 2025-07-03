@@ -37,7 +37,7 @@ use windows::Win32::{
 };
 use wm_common::KeybindingConfig;
 
-use super::PlatformEvent;
+use crate::KeyboardEvent;
 
 /// Global instance of `KeyboardHook`.
 ///
@@ -63,7 +63,7 @@ pub struct ActiveKeybinding {
 #[derive(Debug)]
 pub struct KeyboardHook {
   /// Sender to emit platform events.
-  event_tx: mpsc::UnboundedSender<PlatformEvent>,
+  event_tx: mpsc::UnboundedSender<KeyboardEvent>,
 
   /// Handle to the keyboard hook.
   hook: Arc<Mutex<HHOOK>>,
@@ -78,7 +78,7 @@ impl KeyboardHook {
   /// Creates an instance of `KeyboardHook`.
   pub fn new(
     keybindings: &Vec<KeybindingConfig>,
-    event_tx: mpsc::UnboundedSender<PlatformEvent>,
+    event_tx: mpsc::UnboundedSender<KeyboardEvent>,
   ) -> anyhow::Result<Arc<Self>> {
     let keyboard_hook = Arc::new(Self {
       event_tx,
@@ -391,7 +391,7 @@ impl KeyboardHook {
 
         // Invoke the callback function for the longest matching
         // keybinding.
-        let _ = self.event_tx.send(PlatformEvent::KeybindingTriggered(
+        let _ = self.event_tx.send(KeyboardEvent::KeybindingTriggered(
           longest_keybinding.config.clone(),
         ));
 

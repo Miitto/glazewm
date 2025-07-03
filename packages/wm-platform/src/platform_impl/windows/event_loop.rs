@@ -1,23 +1,22 @@
 use std::{
   cell::RefCell,
-  ptr,
   sync::{
     atomic::{AtomicBool, Ordering},
-    mpsc::{self, Receiver, Sender},
+    mpsc::{self},
     Arc,
   },
   thread::{self, JoinHandle},
 };
 
-use anyhow::Context;
-use windows::{
-  core::*,
-  Win32::{
-    Foundation::*,
-    System::{
-      LibraryLoader::GetModuleHandleW, Threading::GetCurrentThreadId,
-    },
-    UI::WindowsAndMessaging::*,
+use windows::Win32::{
+  Foundation::{HWND, LPARAM, LRESULT, WPARAM},
+  System::Threading::GetCurrentThreadId,
+  UI::WindowsAndMessaging::{
+    DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW,
+    PostMessageW, PostThreadMessageW, TranslateMessage, MSG,
+    PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND, PBT_APMSUSPEND,
+    WM_DEVICECHANGE, WM_DISPLAYCHANGE, WM_INPUT, WM_POWERBROADCAST,
+    WM_QUIT, WM_SETTINGCHANGE, WM_USER,
   },
 };
 
@@ -70,6 +69,15 @@ impl EventLoop {
 
       // Run the message loop
       Self::run_message_loop()?;
+
+      let fns = CLEANUP_FUNCTIONS.with(|fns| fns.replace(vec![]));
+      for cleanup_fn in fns {
+        if let Err(err) = cleanup_fn() {
+          eprintln!("Cleanup function failed: {}", err);
+        }
+      }
+
+      unsafe { DestroyWindow(HWND(hwnd)) }?;
 
       Ok(())
     });
@@ -261,12 +269,6 @@ impl EventLoop {
         if result.0 == -1 {
           return Err(anyhow::anyhow!("GetMessage failed"));
         } else if result.0 == WM_QUIT as i32 {
-          let fns = CLEANUP_FUNCTIONS.with(|fns| fns.replace(vec![]));
-          for cleanup_fn in fns {
-            if let Err(err) = cleanup_fn() {
-              eprintln!("Cleanup function failed: {}", err);
-            }
-          }
           break;
         }
 

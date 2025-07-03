@@ -1,17 +1,14 @@
 use std::sync::OnceLock;
 
 use windows::Win32::{
-  Foundation::{LPARAM, WPARAM},
+  Foundation::WPARAM,
   UI::WindowsAndMessaging::{
     DBT_DEVNODES_CHANGED, SPI_ICONVERTICALSPACING, SPI_SETWORKAREA,
     WM_DEVICECHANGE, WM_SETTINGCHANGE,
   },
 };
 
-use crate::{
-  platform_impl::{Installable, PlatformEvent},
-  DisplayEvent,
-};
+use crate::{platform_impl::Installable, DisplayEvent};
 
 thread_local! {
   static DISPLAY_EVENT_TX: OnceLock<tokio::sync::mpsc::UnboundedSender<crate::DisplayEvent>> = OnceLock::new();

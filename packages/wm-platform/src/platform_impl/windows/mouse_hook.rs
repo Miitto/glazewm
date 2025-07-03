@@ -26,10 +26,8 @@ use windows::Win32::{
 use wm_common::Point;
 
 use crate::{
-  platform_impl::{
-    Installable, MouseMoveEvent, FOREGROUND_INPUT_IDENTIFIER,
-  },
-  MouseEvent,
+  platform_impl::{Installable, FOREGROUND_INPUT_IDENTIFIER},
+  MouseEvent, MouseMoveEvent,
 };
 
 thread_local! {

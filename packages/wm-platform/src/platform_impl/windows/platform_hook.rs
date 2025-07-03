@@ -1,6 +1,6 @@
 use super::MouseHook;
 use crate::{
-  platform_impl::{EventLoop, WindowEventHook},
+  platform_impl::{EventLoop, Installable, WindowEventHook},
   WindowEventType,
 };
 
@@ -26,19 +26,26 @@ impl PlatformHook {
     if self.event_loop.is_none() {
       self.event_loop = Some(EventLoop::new()?);
     }
-    let event_loop = self.event_loop.as_ref().unwrap();
+    let event_loop = self.event_loop.as_mut().unwrap();
     let (mouse_hook, installer) =
       MouseHook::new(event_loop.message_window_handle())?;
 
-    event_loop.dispatch_and_wait(installer)??;
+    event_loop.install(installer)?;
 
     Ok(mouse_hook)
   }
 
-  pub fn with_window_events(
-    &self,
-    events: &[WindowEventType],
+  pub fn with_window_events<S, I>(
+    &mut self,
+    events: &'static [WindowEventType],
   ) -> anyhow::Result<WindowEventHook> {
-    Ok(event_listener)
+    let (window_event_hook, installer) = WindowEventHook::new(events)?;
+
+    if self.event_loop.is_none() {
+      self.event_loop = Some(EventLoop::new()?);
+    }
+    let event_loop = self.event_loop.as_mut().unwrap();
+    event_loop.install(installer)?;
+    Ok(window_event_hook)
   }
 }

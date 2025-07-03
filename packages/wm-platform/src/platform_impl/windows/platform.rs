@@ -35,8 +35,8 @@ use windows::{
 use wm_common::{ParsedConfig, Point};
 
 use super::{
-  native_monitor, native_window, EventListener, NativeMonitor,
-  NativeWindow, SingleInstance,
+  native_monitor, native_window, NativeMonitor, NativeWindow,
+  SingleInstance,
 };
 
 pub type WindowProcedure = WNDPROC;
@@ -118,13 +118,6 @@ impl Platform {
         .filter(|window| window.is_manageable().unwrap_or(false))
         .collect(),
     )
-  }
-
-  /// Creates a new `EventListener` for the specified user config.
-  pub fn start_event_listener(
-    config: &ParsedConfig,
-  ) -> anyhow::Result<EventListener> {
-    EventListener::start(config)
   }
 
   /// Creates a new `SingleInstance`.
