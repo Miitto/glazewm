@@ -39,4 +39,9 @@ impl PlatformData {
 
     Ok(data)
   }
+
+  pub fn refresh(&mut self) -> anyhow::Result<()> {
+    self.state.refresh()?;
+    Ok(())
+  }
 }

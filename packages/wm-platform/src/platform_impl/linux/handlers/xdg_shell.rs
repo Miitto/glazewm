@@ -36,6 +36,18 @@ impl XdgShellHandler for Glaze {
     &mut self.state.xdg_shell
   }
 
+  fn new_client(
+    &mut self,
+    _client: smithay::wayland::shell::xdg::ShellClient,
+  ) {
+  }
+
+  fn client_pong(
+    &mut self,
+    _client: smithay::wayland::shell::xdg::ShellClient,
+  ) {
+  }
+
   // Called whenever a new window is added to the compositor
   fn new_toplevel(&mut self, surface: ToplevelSurface) {
     let window = Window::new_wayland_window(surface);
@@ -48,18 +60,6 @@ impl XdgShellHandler for Glaze {
       .map_element(window.inner().clone(), (0, 0), false);
   }
 
-  /// Called whenever a window is closed
-  fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {
-    let window = self.windows.window_close(&surface);
-
-    if let Err(DispatchError::DispatchError(e)) = self
-      .hooks
-      .dispatch_window_event(crate::WindowEvent::WindowDestroyed(window))
-    {
-      tracing::error!("Failed to dispatch window closed event: {}", e);
-    }
-  }
-
   fn new_popup(
     &mut self,
     surface: PopupSurface,
@@ -67,21 +67,6 @@ impl XdgShellHandler for Glaze {
   ) {
     self.unconstrain_popup(&surface);
     let _ = self.popups.track_popup(PopupKind::Xdg(surface));
-  }
-
-  fn reposition_request(
-    &mut self,
-    surface: PopupSurface,
-    positioner: PositionerState,
-    token: u32,
-  ) {
-    surface.with_pending_state(|state| {
-      let geometry = positioner.get_geometry();
-      state.geometry = geometry;
-      state.positioner = positioner;
-    });
-    self.unconstrain_popup(&surface);
-    surface.send_repositioned(token);
   }
 
   fn move_request(
@@ -165,6 +150,101 @@ impl XdgShellHandler for Glaze {
   ) {
     // TODO popup grabs
   }
+
+  fn maximize_request(&mut self, surface: ToplevelSurface) {
+    surface.send_configure();
+  }
+
+  fn unmaximize_request(&mut self, _surface: ToplevelSurface) {}
+
+  fn fullscreen_request(
+    &mut self,
+    surface: ToplevelSurface,
+    _output: Option<
+      smithay::reexports::wayland_server::protocol::wl_output::WlOutput,
+    >,
+  ) {
+    self
+      .windows
+      .find_from_surface(&surface)
+      .map(|window| window.mark_fullscreen(true));
+    surface.send_configure();
+  }
+
+  fn unfullscreen_request(&mut self, surface: ToplevelSurface) {
+    self
+      .windows
+      .find_from_surface(&surface)
+      .map(|window| window.mark_fullscreen(false));
+    surface.send_configure();
+  }
+
+  fn minimize_request(&mut self, surface: ToplevelSurface) {
+    if let Some(window) = self.windows.find_from_surface(&surface).cloned()
+    {
+      self.space.unmap_elem(window.inner());
+      self.windows.window_minimize(&window);
+    } else {
+      tracing::warn!("Minimize request for a non-existing window");
+    }
+  }
+
+  fn show_window_menu(
+    &mut self,
+    _surface: ToplevelSurface,
+    _seat: wl_seat::WlSeat,
+    _serial: Serial,
+    _location: smithay::utils::Point<i32, smithay::utils::Logical>,
+  ) {
+  }
+
+  fn ack_configure(
+    &mut self,
+    _surface: smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+    _configure: smithay::wayland::shell::xdg::Configure,
+  ) {
+  }
+
+  fn reposition_request(
+    &mut self,
+    surface: PopupSurface,
+    positioner: PositionerState,
+    token: u32,
+  ) {
+    surface.with_pending_state(|state| {
+      let geometry = positioner.get_geometry();
+      state.geometry = geometry;
+      state.positioner = positioner;
+    });
+    self.unconstrain_popup(&surface);
+    surface.send_repositioned(token);
+  }
+
+  fn client_destroyed(
+    &mut self,
+    _client: smithay::wayland::shell::xdg::ShellClient,
+  ) {
+  }
+
+  /// Called whenever a window is closed
+  fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {
+    let window = self.windows.window_close(&surface);
+
+    if let Err(DispatchError::DispatchError(e)) = self
+      .hooks
+      .dispatch_window_event(crate::WindowEvent::WindowDestroyed(window))
+    {
+      tracing::error!("Failed to dispatch window closed event: {}", e);
+    }
+  }
+
+  fn popup_destroyed(&mut self, _surface: PopupSurface) {}
+
+  fn app_id_changed(&mut self, _surface: ToplevelSurface) {}
+
+  fn title_changed(&mut self, _surface: ToplevelSurface) {}
+
+  fn parent_changed(&mut self, _surface: ToplevelSurface) {}
 }
 
 // Xdg Shell

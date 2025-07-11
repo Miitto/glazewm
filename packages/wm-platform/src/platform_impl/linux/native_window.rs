@@ -1,7 +1,10 @@
 #![allow(unused_variables)]
 // TODO: Remove this once the code is complete
 
-use smithay::desktop::Window;
+use smithay::{
+  desktop::Window,
+  reexports::wayland_protocols::xdg::shell::server::xdg_toplevel,
+};
 use wm_common::{
   Color, CornerStyle, HideMethod, OpacityValue, Rect, WindowState,
 };
@@ -14,13 +17,23 @@ pub struct NativeWindow {
   // own
   id: uuid::Uuid,
   inner: Window,
+  needs_configure: bool,
 }
 
 impl NativeWindow {
   #[must_use]
   pub fn new(inner: Window) -> Self {
     let id = uuid::Uuid::new_v4();
-    Self { id, inner }
+    Self {
+      id,
+      inner,
+      needs_configure: false,
+    }
+  }
+
+  #[must_use]
+  pub fn needs_configure(&self) -> bool {
+    self.needs_configure
   }
 
   pub(crate) fn inner(&self) -> &Window {
@@ -53,7 +66,28 @@ impl NativeWindow {
   }
 
   pub fn mark_fullscreen(&self, b: bool) -> anyhow::Result<()> {
-    todo!()
+    let toplevel = self.toplevel().ok_or_else(|| {
+      anyhow::anyhow!(
+        "Window is not a toplevel window, cannot mark fullscreen"
+      )
+    })?;
+    if toplevel
+      .current_state()
+      .states
+      .contains(xdg_toplevel::State::Fullscreen)
+      == b
+    {
+      return Ok(());
+    }
+    toplevel.with_pending_state(|state| {
+      if b {
+        state.states.set(xdg_toplevel::State::Fullscreen);
+      } else {
+        state.states.unset(xdg_toplevel::State::Fullscreen);
+      }
+    });
+
+    Ok(())
   }
 
   pub fn is_fullscreen(&self, rect: &Rect) -> anyhow::Result<bool> {

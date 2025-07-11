@@ -69,7 +69,11 @@ async fn start_wm(
     }
   }
 
-  event_loop.run(None, &mut state, |_| {})?;
+  event_loop.run(None, &mut state, |data| {
+    if let Err(e) = data.platform.refresh() {
+      tracing::error!("Failed to refresh platform state: {}", e);
+    }
+  })?;
 
   Ok(())
 }

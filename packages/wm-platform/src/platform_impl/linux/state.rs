@@ -210,6 +210,12 @@ impl Glaze {
           .map(|(s, p)| (s, (p + location).to_f64()))
       })
   }
+
+  pub fn refresh(&mut self) -> anyhow::Result<()> {
+    self.windows.refresh()?;
+
+    Ok(())
+  }
 }
 
 #[derive(Default)]

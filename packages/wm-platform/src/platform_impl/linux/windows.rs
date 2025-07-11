@@ -41,6 +41,15 @@ impl Windows {
     }
   }
 
+  pub fn window_minimize(&mut self, window: &NativeWindow) {
+    if let Some((idx, _)) =
+      self.mapped.iter().enumerate().find(|(_, w)| **w == *window)
+    {
+      let window = self.mapped.remove(idx);
+      self.unmapped.push(window);
+    }
+  }
+
   pub fn find_from_surface(
     &self,
     surface: &ToplevelSurface,
@@ -75,5 +84,17 @@ impl Windows {
       .unmapped
       .iter_mut()
       .find(|w| w.toplevel().is_some_and(|s| *s == *surface))
+  }
+
+  pub fn refresh(&mut self) -> anyhow::Result<()> {
+    // Refresh all windows, this is a no-op for now
+    for window in &mut self.mapped {
+      if let Some(toplevel) = window.toplevel() {
+        toplevel.send_pending_configure().ok_or_else(|| {
+          anyhow::anyhow!("Failed to send pending configuration")
+        })?;
+      }
+    }
+    Ok(())
   }
 }
