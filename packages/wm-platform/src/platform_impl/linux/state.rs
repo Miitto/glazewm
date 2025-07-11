@@ -23,9 +23,9 @@ use smithay::{
     socket::ListeningSocketSource,
   },
 };
-use wm_common::ParsedConfig;
 
-use super::{windows::Windows, CalloopData, Hooks};
+use super::{windows::Windows, Hooks, PlatformData};
+use crate::EventLoopData;
 
 pub struct Glaze {
   pub start_time: std::time::Instant,
@@ -43,8 +43,6 @@ pub struct Glaze {
 
   pub seat: Seat<Self>,
 
-  pub config: wm_common::ParsedConfig,
-
   pub windows: Windows,
   pub hooks: Hooks,
 }
@@ -59,11 +57,13 @@ pub struct State {
 }
 
 impl Glaze {
-  pub fn new(
-    event_loop: &mut EventLoop<CalloopData>,
+  pub fn new<D>(
+    event_loop: &mut EventLoop<D>,
     display: Display<Self>,
-    config: ParsedConfig,
-  ) -> Self {
+  ) -> Self
+  where
+    D: EventLoopData,
+  {
     let start_time = std::time::Instant::now();
 
     let dh = display.handle();
@@ -134,17 +134,19 @@ impl Glaze {
       state,
       popups,
       seat,
-      config,
       windows: Windows::default(),
       hooks: Hooks::default(),
     }
   }
 
   /// Connect wayland to the event loop
-  fn init_wayland_listener(
+  fn init_wayland_listener<D>(
     display: Display<Glaze>,
-    event_loop: &mut EventLoop<CalloopData>,
-  ) -> OsString {
+    event_loop: &mut EventLoop<D>,
+  ) -> OsString
+  where
+    D: EventLoopData,
+  {
     // Creates a new listening socket, automatically choosing the next
     // available `wayland` socket name.
     let listening_socket = ListeningSocketSource::new_auto().unwrap();
@@ -165,6 +167,7 @@ impl Glaze {
         // You may also associate some data with the client when inserting
         // the client.
         state
+          .platform_data_mut()
           .display_handle
           .insert_client(client_stream, Arc::new(ClientState::default()))
           .unwrap();
@@ -182,7 +185,7 @@ impl Glaze {
           unsafe {
             display
               .get_mut()
-              .dispatch_clients(&mut state.state)
+              .dispatch_clients(&mut state.platform_data_mut().state)
               .unwrap();
           }
           // Tell the event loop to continue

@@ -9,10 +9,10 @@ use crate::{
 };
 
 pub fn handle_window_destroyed(
-  native_window: &NativeWindow,
+  native_window: &Option<NativeWindow>,
   state: &mut WmState,
 ) -> anyhow::Result<()> {
-  let found_window = state.window_from_native(native_window);
+  let found_window = state.window_from_native(native_window.as_ref());
 
   // Unmanage the window if it's currently managed.
   if let Some(window) = found_window {

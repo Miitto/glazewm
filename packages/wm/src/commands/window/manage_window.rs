@@ -22,24 +22,19 @@ pub fn manage_window(
   native_window: NativeWindow,
   target_parent: Option<Container>,
   state: &mut WmState,
-  config: &mut UserConfig,
 ) -> anyhow::Result<()> {
   // Create the window instance. This may fail if the window handle has
   // already been destroyed.
   let window =
-    try_warn!(create_window(native_window, target_parent, state, config));
+    try_warn!(create_window(native_window, target_parent, state));
 
   // Set the newly added window as focus descendant. This means the window
   // rules will be run as if the window is focused.
   set_focused_descendant(&window.clone().into(), None);
 
   // Window might be detached if `ignore` command has been invoked.
-  let updated_window = run_window_rules(
-    window.clone(),
-    &WindowRuleEvent::Manage,
-    state,
-    config,
-  )?;
+  let updated_window =
+    run_window_rules(window.clone(), &WindowRuleEvent::Manage, state)?;
 
   if let Some(window) = updated_window {
     info!("New window managed: {window}");
@@ -78,7 +73,6 @@ fn create_window(
   native_window: NativeWindow,
   target_parent: Option<Container>,
   state: &mut WmState,
-  config: &UserConfig,
 ) -> anyhow::Result<WindowContainer> {
   let nearest_monitor = state
     .nearest_monitor(&native_window)
@@ -88,9 +82,12 @@ fn create_window(
     .displayed_workspace()
     .context("No nearest workspace.")?;
 
-  let gaps_config = config.value.gaps.clone();
-  let window_state =
-    window_state_to_create(&native_window, &nearest_monitor, config)?;
+  let gaps_config = state.config.value.gaps.clone();
+  let window_state = window_state_to_create(
+    &native_window,
+    &nearest_monitor,
+    &state.config,
+  )?;
 
   // Attach the new window as the first child of the target parent (if
   // provided), otherwise, add as a sibling of the focused container.
@@ -102,7 +99,8 @@ fn create_window(
   let target_workspace =
     target_parent.workspace().context("No target workspace.")?;
 
-  let prefers_centered = config
+  let prefers_centered = state
+    .config
     .value
     .window_behavior
     .state_defaults

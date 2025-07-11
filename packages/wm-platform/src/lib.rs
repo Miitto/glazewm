@@ -6,10 +6,13 @@
 mod events;
 mod key;
 mod platform_impl;
+mod traits;
 
+pub use calloop;
 pub use events::*;
 pub use key::*;
 pub use platform_impl::*;
+pub use traits::*;
 
 pub enum ZOrder {
   Normal,

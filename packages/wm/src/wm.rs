@@ -6,7 +6,9 @@ use wm_common::{
   FloatingStateConfig, FullscreenStateConfig, InvokeCommand, LengthValue,
   RectDelta, TitleBarVisibility, WindowState, WmEvent,
 };
-use wm_platform::{DisplayEvent, KeyboardEvent, MouseEvent, WindowEvent};
+use wm_platform::{
+  DisplayEvent, KeyboardEvent, MouseEvent, PlatformData, WindowEvent,
+};
 
 use crate::{
   commands::{
@@ -47,12 +49,15 @@ pub struct WindowManager {
 }
 
 impl WindowManager {
-  pub fn new(config: &mut UserConfig) -> anyhow::Result<Self> {
+  pub fn new(
+    config: UserConfig,
+    platform: PlatformData,
+  ) -> anyhow::Result<Self> {
     let (event_tx, event_rx) = mpsc::unbounded_channel();
     let (exit_tx, exit_rx) = mpsc::unbounded_channel();
 
-    let mut state = WmState::new(event_tx, exit_tx);
-    state.populate(config)?;
+    let mut state = WmState::new(event_tx, exit_tx, config, platform);
+    state.populate()?;
 
     Ok(Self {
       event_rx,
@@ -64,18 +69,17 @@ impl WindowManager {
   pub fn process_display_event(
     &mut self,
     event: &DisplayEvent,
-    config: &mut UserConfig,
   ) -> anyhow::Result<()> {
     let state = &mut self.state;
 
     match event {
       DisplayEvent::DisplaySettingsChanged => {
-        handle_display_settings_changed(state, config)
+        handle_display_settings_changed(state, &self.config)
       }
     }?;
 
     if !state.is_paused && state.pending_sync.has_changes() {
-      platform_sync(state, config)?;
+      platform_sync(state, &self.config)?;
     }
 
     Ok(())
@@ -88,7 +92,7 @@ impl WindowManager {
   ) -> anyhow::Result<()> {
     match event {
       KeyboardEvent::KeybindingTriggered(kb_config) => {
-        self.process_commands(&kb_config.commands, None, config)?;
+        self.process_commands(&kb_config.commands, None)?;
       }
     }
 
@@ -166,7 +170,6 @@ impl WindowManager {
     &mut self,
     commands: &Vec<InvokeCommand>,
     subject_container_id: Option<Uuid>,
-    config: &mut UserConfig,
   ) -> anyhow::Result<Uuid> {
     let state = &mut self.state;
 
@@ -180,15 +183,11 @@ impl WindowManager {
         .context("No subject container for command.")?,
     };
 
-    let new_subject_container_id = WindowManager::run_commands(
-      commands,
-      subject_container,
-      state,
-      config,
-    )?;
+    let new_subject_container_id =
+      WindowManager::run_commands(commands, subject_container, state)?;
 
     if state.pending_sync.has_changes() {
-      platform_sync(state, config)?;
+      platform_sync(state)?;
     }
 
     Ok(new_subject_container_id)
@@ -198,7 +197,6 @@ impl WindowManager {
     commands: &Vec<InvokeCommand>,
     subject_container: Container,
     state: &mut WmState,
-    config: &mut UserConfig,
   ) -> anyhow::Result<Uuid> {
     let mut current_subject_container = subject_container;
 
@@ -207,7 +205,6 @@ impl WindowManager {
         command,
         current_subject_container.clone(),
         state,
-        config,
       )?;
 
       // Update the subject container in case the container type changes.
@@ -231,7 +228,6 @@ impl WindowManager {
     command: &InvokeCommand,
     subject_container: Container,
     state: &mut WmState,
-    config: &mut UserConfig,
   ) -> anyhow::Result<()> {
     // No-op if WM is currently paused.
     if state.is_paused && *command != InvokeCommand::WmTogglePause {
@@ -284,7 +280,6 @@ impl WindowManager {
           focus_workspace(
             WorkspaceTarget::Direction(direction.clone()),
             state,
-            config,
           )?;
         }
 
@@ -293,50 +288,41 @@ impl WindowManager {
         }
 
         if let Some(name) = &args.workspace {
-          focus_workspace(
-            WorkspaceTarget::Name(name.to_string()),
-            state,
-            config,
-          )?;
+          focus_workspace(WorkspaceTarget::Name(name.to_string()), state)?;
         }
 
         if let Some(monitor_index) = &args.monitor {
-          focus_monitor(*monitor_index, state, config)?;
+          focus_monitor(*monitor_index, state)?;
         }
 
         if args.next_active_workspace {
-          focus_workspace(WorkspaceTarget::NextActive, state, config)?;
+          focus_workspace(WorkspaceTarget::NextActive, state)?;
         }
 
         if args.prev_active_workspace {
-          focus_workspace(WorkspaceTarget::PreviousActive, state, config)?;
+          focus_workspace(WorkspaceTarget::PreviousActive, state)?;
         }
 
         if args.next_workspace {
-          focus_workspace(WorkspaceTarget::Next, state, config)?;
+          focus_workspace(WorkspaceTarget::Next, state)?;
         }
 
         if args.prev_workspace {
-          focus_workspace(WorkspaceTarget::Previous, state, config)?;
+          focus_workspace(WorkspaceTarget::Previous, state)?;
         }
 
         if args.recent_workspace {
-          focus_workspace(WorkspaceTarget::Recent, state, config)?;
+          focus_workspace(WorkspaceTarget::Recent, state)?;
         }
 
         if args.next_active_workspace_on_monitor {
-          focus_workspace(
-            WorkspaceTarget::NextActiveInMonitor,
-            state,
-            config,
-          )?;
+          focus_workspace(WorkspaceTarget::NextActiveInMonitor, state)?;
         }
 
         if args.prev_active_workspace_on_monitor {
           focus_workspace(
             WorkspaceTarget::PreviousActiveInMonitor,
             state,
-            config,
           )?;
         }
 
@@ -352,12 +338,7 @@ impl WindowManager {
         match subject_container.as_window_container() {
           Ok(window) => {
             if let Some(direction) = &args.direction {
-              move_window_in_direction(
-                window.clone(),
-                direction,
-                state,
-                config,
-              )?;
+              move_window_in_direction(window.clone(), direction, state)?;
             }
 
             if let Some(direction) = &args.workspace_in_direction {
@@ -365,7 +346,6 @@ impl WindowManager {
                 window.clone(),
                 WorkspaceTarget::Direction(direction.clone()),
                 state,
-                config,
               )?;
             }
 
@@ -374,7 +354,6 @@ impl WindowManager {
                 window.clone(),
                 WorkspaceTarget::Name(name.to_string()),
                 state,
-                config,
               )?;
             }
 
@@ -383,7 +362,6 @@ impl WindowManager {
                 window.clone(),
                 WorkspaceTarget::NextActive,
                 state,
-                config,
               )?;
             }
 
@@ -410,7 +388,6 @@ impl WindowManager {
                 window.clone(),
                 WorkspaceTarget::Previous,
                 state,
-                config,
               )?;
             }
 
@@ -419,7 +396,6 @@ impl WindowManager {
                 window.clone(),
                 WorkspaceTarget::Recent,
                 state,
-                config,
               )?;
             }
 
@@ -428,7 +404,6 @@ impl WindowManager {
                 window.clone(),
                 WorkspaceTarget::NextActiveInMonitor,
                 state,
-                config,
               )?;
             }
 

@@ -19,7 +19,7 @@ use tracing_subscriber::{
   layer::SubscriberExt,
 };
 use wm_common::{AppCommand, InvokeCommand, Verbosity, WmEvent};
-use wm_platform::{PlatformHook, WindowEventType};
+use wm_platform::WindowEventType;
 
 use crate::{
   ipc_server::IpcServer, sys_tray::SystemTray, user_config::UserConfig,
@@ -91,113 +91,109 @@ async fn start_wm(
   // Add application icon to system tray.
   let mut tray = SystemTray::new(&config.path)?;
 
-  let mut wm = WindowManager::new(&mut config)?;
+  let mut event_loop = wm_platform::calloop::EventLoop::try_new()?;
+
+  let platform_data =
+    wm_platform::PlatformData::setup_event_loop(&mut event_loop)?;
+
+  let mut wm = WindowManager::new(config, platform_data)?;
 
   let mut ipc_server = IpcServer::start().await?;
 
-  // Start listening for platform events after populating initial state.
-  let mut hook = PlatformHook::dedicated(&config.value)?;
-
-  let mut mouse_hook = hook.create_mouse_listener().await?;
-  let mut display_hook = hook.create_display_listener().await?;
-  tracing::warn!("Creating Window hook");
-  let mut window_hook =
-    hook.with_window_events(WindowEventType::all()).await?;
-  tracing::warn!("Creating Keyboard hook");
-  let mut keyboard_hook = hook
-    .create_keyboard_listener(&config.value.keybindings)
-    .await?;
-
   // Run startup commands.
-  let startup_commands = config.value.general.startup_commands.clone();
-  wm.process_commands(&startup_commands, None, &mut config)?;
+  let startup_commands =
+    wm.state.config.value.general.startup_commands.clone();
+  wm.process_commands(&startup_commands, None)?;
 
-  loop {
-    let res = tokio::select! {
-      Some(()) = tray.exit_rx.recv() => {
-        info!("Exiting through system tray.");
-        break;
-      },
-      Some(()) = wm.exit_rx.recv() => {
-        info!("Exiting through WM command.");
-        break;
-      },
-      _ = signal::ctrl_c() => {
-        info!("Received SIGINT signal.");
-        break;
-      },
-      Some(event) = mouse_hook.next_event() => {
-        debug!("Received mouse event: {:?}", event);
-        wm.process_mouse_event(event, &mut config)
-      },
-      Some(event) = display_hook.next_event() => {
-        debug!("Received display event: {:?}", event);
-        wm.process_display_event(&event, &mut config)
-      },
-      Some(event) = window_hook.next_event() => {
-        debug!("Received window event: {:?}", event);
-        wm.process_window_event(event, &mut config)
-      },
-      Some(event) = keyboard_hook.next_event() => {
-        debug!("Received keyboard event: {:?}", event);
-        wm.process_keyboard_event(event, &mut config)
-      },
-      Some((
-        message,
-        response_tx,
-        disconnection_tx
-      )) = ipc_server.message_rx.recv() => {
-        info!("Received IPC message: {:?}", message);
+  event_loop.run(None, &mut wm.state, |_wm| {});
 
-        if let Err(err) = ipc_server.process_message(
-          message,
-          &response_tx,
-          &disconnection_tx,
-          &mut wm,
-          &mut config,
-        ) {
-          error!("{:?}", err);
-        }
+  // loop {
+  //   let res = tokio::select! {
+  //     Some(()) = tray.exit_rx.recv() => {
+  //       info!("Exiting through system tray.");
+  //       break;
+  //     },
+  //     Some(()) = wm.exit_rx.recv() => {
+  //       info!("Exiting through WM command.");
+  //       break;
+  //     },
+  //     _ = signal::ctrl_c() => {
+  //       info!("Received SIGINT signal.");
+  //       break;
+  //     },
+  //     Some(event) = mouse_hook.next_event() => {
+  //       debug!("Received mouse event: {:?}", event);
+  //       wm.process_mouse_event(event, &mut config)
+  //     },
+  //     Some(event) = display_hook.next_event() => {
+  //       debug!("Received display event: {:?}", event);
+  //       wm.process_display_event(&event, &mut config)
+  //     },
+  //     Some(event) = window_hook.next_event() => {
+  //       debug!("Received window event: {:?}", event);
+  //       wm.process_window_event(event, &mut config)
+  //     },
+  //     Some(event) = keyboard_hook.next_event() => {
+  //       debug!("Received keyboard event: {:?}", event);
+  //       wm.process_keyboard_event(event, &mut config)
+  //     },
+  //     Some((
+  //       message,
+  //       response_tx,
+  //       disconnection_tx
+  //     )) = ipc_server.message_rx.recv() => {
+  //       info!("Received IPC message: {:?}", message);
+  //
+  //       if let Err(err) = ipc_server.process_message(
+  //         message,
+  //         &response_tx,
+  //         &disconnection_tx,
+  //         &mut wm,
+  //         &mut config,
+  //       ) {
+  //         error!("{:?}", err);
+  //       }
+  //
+  //       Ok(())
+  //     },
+  //     Some(wm_event) = wm.event_rx.recv() => {
+  //       debug!("Received WM event: {:?}", wm_event);
+  //
+  //       // Update event listener when keyboard or mouse listener needs
+  // to       // be changed.
+  //       if matches!(
+  //         wm_event,
+  //         WmEvent::UserConfigChanged { .. }
+  //           | WmEvent::BindingModesChanged { .. }
+  //           | WmEvent::PauseChanged { .. }
+  //       ) {
+  //         hook.update_keybinds(&config.value.keybindings,
+  // &config.value.binding_modes, wm.state.is_paused)?;         hook.
+  // update_mouse(config.value.general.focus_follows_cursor &&
+  // !wm.state.is_paused);       }
+  //
+  //       if let Err(err) = ipc_server.process_event(wm_event) {
+  //         error!("{:?}", err);
+  //       }
+  //
+  //       Ok(())
+  //     },
+  //     Some(()) = tray.config_reload_rx.recv() => {
+  //       wm.process_commands(
+  //         &vec![InvokeCommand::WmReloadConfig],
+  //         None,
+  //         &mut config,
+  //       ).map(|_| ())
+  //     },
+  //   };
+  //
+  //   if let Err(err) = res {
+  //     error!("{:?}", err);
+  //     hook.show_error_dialog("Non-fatal error", &err.to_string());
+  //   }
+  // }
 
-        Ok(())
-      },
-      Some(wm_event) = wm.event_rx.recv() => {
-        debug!("Received WM event: {:?}", wm_event);
-
-        // Update event listener when keyboard or mouse listener needs to
-        // be changed.
-        if matches!(
-          wm_event,
-          WmEvent::UserConfigChanged { .. }
-            | WmEvent::BindingModesChanged { .. }
-            | WmEvent::PauseChanged { .. }
-        ) {
-          hook.update_keybinds(&config.value.keybindings, &config.value.binding_modes, wm.state.is_paused)?;
-          hook.update_mouse(config.value.general.focus_follows_cursor && !wm.state.is_paused);
-        }
-
-        if let Err(err) = ipc_server.process_event(wm_event) {
-          error!("{:?}", err);
-        }
-
-        Ok(())
-      },
-      Some(()) = tray.config_reload_rx.recv() => {
-        wm.process_commands(
-          &vec![InvokeCommand::WmReloadConfig],
-          None,
-          &mut config,
-        ).map(|_| ())
-      },
-    };
-
-    if let Err(err) = res {
-      error!("{:?}", err);
-      hook.show_error_dialog("Non-fatal error", &err.to_string());
-    }
-  }
-
-  run_cleanup(&mut wm, &mut config, &mut ipc_server)
+  run_cleanup(&mut wm, &mut ipc_server)
 }
 
 /// Initialize logging with the specified verbosity level.
@@ -253,7 +249,6 @@ fn start_watcher_process() -> anyhow::Result<tokio::process::Child, Error>
 /// Runs cleanup tasks when the WM is exiting.
 fn run_cleanup(
   wm: &mut WindowManager,
-  config: &mut UserConfig,
   ipc_server: &mut IpcServer,
 ) -> anyhow::Result<()> {
   // Ensure that the WM is unpaused, otherwise, shutdown commands won't get
@@ -261,8 +256,9 @@ fn run_cleanup(
   wm.state.is_paused = false;
 
   // Run shutdown commands.
-  let shutdown_commands = config.value.general.shutdown_commands.clone();
-  wm.process_commands(&shutdown_commands, None, config)?;
+  let shutdown_commands =
+    wm.state.config.value.general.shutdown_commands.clone();
+  wm.process_commands(&shutdown_commands, None)?;
 
   wm.state.emit_event(WmEvent::ApplicationExiting);
 

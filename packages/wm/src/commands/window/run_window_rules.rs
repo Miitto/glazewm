@@ -15,7 +15,6 @@ pub fn run_window_rules(
   window: WindowContainer,
   event_type: &WindowRuleEvent,
   state: &mut WmState,
-  config: &mut UserConfig,
 ) -> anyhow::Result<Option<WindowContainer>> {
   let pending_window_rules =
     config.pending_window_rules(&window, event_type)?;
@@ -30,7 +29,6 @@ pub fn run_window_rules(
         command,
         subject_window.clone().into(),
         state,
-        config,
       )?;
 
       // Update the subject container in case the container type changes.

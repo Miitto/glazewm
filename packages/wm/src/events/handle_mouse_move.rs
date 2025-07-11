@@ -22,9 +22,16 @@ pub fn handle_mouse_move(
     return Ok(());
   }
 
-  let window_under_cursor = Platform::window_from_point(&event.point)
-    .and_then(|window| Platform::root_ancestor(&window))
-    .map(|root| state.window_from_native(&root))?;
+  let window_under_cursor = if let Some(window) = state
+    .platform
+    .window_from_point(&event.point)?
+    .and_then(|window| state.platform.root_ancestor(&window))
+    .map(|root| state.window_from_native(Some(&root)))
+  {
+    window
+  } else {
+    return Ok(());
+  };
 
   // Set focus to whichever window is currently under the cursor.
   if let Some(window) = window_under_cursor {

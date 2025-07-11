@@ -8,7 +8,6 @@ use crate::{
   },
   models::WorkspaceTarget,
   traits::CommonGetters,
-  user_config::UserConfig,
   wm_state::WmState,
 };
 
@@ -22,22 +21,21 @@ use crate::{
 pub fn focus_workspace(
   target: WorkspaceTarget,
   state: &mut WmState,
-  config: &UserConfig,
 ) -> anyhow::Result<()> {
   let focused_workspace = state
     .focused_container()
     .and_then(|focused| focused.workspace())
     .context("No workspace is currently focused.")?;
 
-  let (target_workspace_name, target_workspace) =
-    state.workspace_by_target(&focused_workspace, target, config)?;
+  let (target_workspace_name, target_workspace) = state
+    .workspace_by_target(&focused_workspace, target, &state.config)?;
 
   // Retrieve or activate the target workspace by its name.
   let target_workspace = match target_workspace {
     Some(_) => anyhow::Ok(target_workspace),
     _ => match target_workspace_name {
       Some(name) => {
-        activate_workspace(Some(&name), None, state, config)?;
+        activate_workspace(Some(&name), None, state)?;
 
         Ok(state.workspace_by_name(&name))
       }

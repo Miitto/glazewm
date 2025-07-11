@@ -7,7 +7,6 @@ use crate::{
   commands::container::attach_container,
   models::{Monitor, Workspace},
   traits::{CommonGetters, PositionGetters},
-  user_config::UserConfig,
   wm_state::WmState,
 };
 
@@ -22,14 +21,9 @@ pub fn activate_workspace(
   workspace_name: Option<&str>,
   target_monitor: Option<Monitor>,
   state: &mut WmState,
-  config: &UserConfig,
 ) -> anyhow::Result<()> {
-  let workspace_config = workspace_config(
-    workspace_name,
-    target_monitor.clone(),
-    state,
-    config,
-  )?;
+  let workspace_config =
+    workspace_config(workspace_name, target_monitor.clone(), state)?;
 
   let target_monitor = target_monitor
     .or_else(|| {
@@ -59,7 +53,7 @@ pub fn activate_workspace(
 
   let workspace = Workspace::new(
     workspace_config.clone(),
-    config.value.gaps.clone(),
+    state.config.value.gaps.clone(),
     tiling_direction,
   );
 
@@ -70,7 +64,7 @@ pub fn activate_workspace(
     None,
   )?;
 
-  sort_workspaces(&target_monitor, config)?;
+  sort_workspaces(&target_monitor, &state.config)?;
 
   info!("Activating workspace: {workspace}");
 
@@ -86,10 +80,9 @@ fn workspace_config(
   workspace_name: Option<&str>,
   target_monitor: Option<Monitor>,
   state: &mut WmState,
-  config: &UserConfig,
 ) -> anyhow::Result<WorkspaceConfig> {
   let found_config = match workspace_name {
-    Some(workspace_name) => config
+    Some(workspace_name) => state.config
       .inactive_workspace_configs(&state.workspaces())
       .into_iter()
       .find(|config| config.name == workspace_name)
@@ -100,13 +93,13 @@ fn workspace_config(
       }),
     None => target_monitor
       .and_then(|target_monitor| {
-        config.workspace_config_for_monitor(
+        state.config.workspace_config_for_monitor(
           &target_monitor,
           &state.workspaces(),
         )
       })
       .or_else(|| {
-        config.next_inactive_workspace_config(&state.workspaces())
+        state.config.next_inactive_workspace_config(&state.workspaces())
       })
       .context("No workspace config available to activate workspace."),
   };

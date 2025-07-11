@@ -1,7 +1,7 @@
 use anyhow::Context;
 use tracing::info;
 use wm_common::{DisplayState, WindowRuleEvent, WmEvent};
-use wm_platform::{NativeWindow, Platform};
+use wm_platform::NativeWindow;
 
 use crate::{
   commands::{
@@ -15,19 +15,21 @@ use crate::{
 };
 
 pub fn handle_window_focused(
-  native_window: &NativeWindow,
+  native_window: &Option<NativeWindow>,
   state: &mut WmState,
   config: &mut UserConfig,
 ) -> anyhow::Result<()> {
-  let found_window = state.window_from_native(native_window);
+  let found_window = state.window_from_native(native_window.as_ref());
   let focused_container =
     state.focused_container().context("No focused container.")?;
 
   // Update the focus sync state. If the OS focused window is not same as
   // the WM's focused container, then the focus is not synced.
   state.is_focus_synced = match focused_container.as_window_container() {
-    Ok(window) => *window.native() == *native_window,
-    _ => Platform::desktop_window() == *native_window,
+    Ok(window) => native_window
+      .as_ref()
+      .is_some_and(|w| *w == *window.native()),
+    _ => native_window.is_none(),
   };
 
   // Handle overriding focus on close/minimize. After a window is closed

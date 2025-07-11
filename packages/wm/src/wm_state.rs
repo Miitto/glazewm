@@ -7,7 +7,7 @@ use uuid::Uuid;
 use wm_common::{
   BindingModeConfig, Direction, Point, WindowState, WmEvent,
 };
-use wm_platform::{NativeMonitor, NativeWindow, PlatformHook};
+use wm_platform::{NativeMonitor, NativeWindow, PlatformData};
 
 use crate::{
   commands::{
@@ -24,7 +24,9 @@ use crate::{
 };
 
 pub struct WmState {
-  pub platform: PlatformHook,
+  pub platform: PlatformData,
+
+  pub config: UserConfig,
 
   /// Root node of the container tree. Monitors are the children of the
   /// root node, followed by workspaces, then split containers/windows.
@@ -73,12 +75,30 @@ pub struct WmState {
   exit_tx: mpsc::UnboundedSender<()>,
 }
 
+impl wm_platform::EventLoopData for WmState {
+  fn platform_data(&self) -> &wm_platform::PlatformData {
+    &self.platform
+  }
+
+  fn platform_data_mut(&mut self) -> &mut wm_platform::PlatformData {
+    &mut self.platform
+  }
+
+  fn config(&self) -> &UserConfig {
+    &self.config
+  }
+}
+
 impl WmState {
   pub fn new(
     event_tx: mpsc::UnboundedSender<WmEvent>,
     exit_tx: mpsc::UnboundedSender<()>,
+    config: UserConfig,
+    platform: PlatformData,
   ) -> Self {
     Self {
+      platform,
+      config,
       root_container: RootContainer::new(),
       pending_sync: PendingSync::default(),
       prev_effects_window: None,
@@ -96,10 +116,7 @@ impl WmState {
 
   /// Populates the initial WM state by creating containers for all
   /// existing windows and monitors.
-  pub fn populate(
-    &mut self,
-    config: &mut UserConfig,
-  ) -> anyhow::Result<()> {
+  pub fn populate(&mut self) -> anyhow::Result<()> {
     // Get the originally focused window when the WM was started.
     let foreground_window = Platform::foreground_window();
 
@@ -118,12 +135,7 @@ impl WmState {
         .and_then(|m| m.displayed_workspace());
 
       if let Some(workspace) = nearest_workspace {
-        manage_window(
-          native_window,
-          Some(workspace.into()),
-          self,
-          config,
-        )?;
+        manage_window(native_window, Some(workspace.into()), self)?;
       }
     }
 
@@ -146,7 +158,7 @@ impl WmState {
       self.pending_sync.queue_workspace_to_reorder(workspace);
     }
 
-    platform_sync(self, config)?;
+    platform_sync(self)?;
     self.has_initialized = true;
 
     Ok(())
@@ -253,8 +265,9 @@ impl WmState {
   /// Gets window that corresponds to the given `NativeWindow`.
   pub fn window_from_native(
     &self,
-    native_window: &NativeWindow,
+    native_window: Option<&NativeWindow>,
   ) -> Option<WindowContainer> {
+    let native_window = native_window?;
     self
       .windows()
       .into_iter()

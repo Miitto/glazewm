@@ -16,10 +16,7 @@ use crate::{
   wm_state::WmState,
 };
 
-pub fn platform_sync(
-  state: &mut WmState,
-  config: &UserConfig,
-) -> anyhow::Result<()> {
+pub fn platform_sync(state: &mut WmState) -> anyhow::Result<()> {
   let focused_container =
     state.focused_container().context("No focused container.")?;
 
@@ -30,13 +27,13 @@ pub fn platform_sync(
   if !state.pending_sync.containers_to_redraw().is_empty()
     || !state.pending_sync.workspaces_to_reorder().is_empty()
   {
-    redraw_containers(&focused_container, state, config)?;
+    redraw_containers(&focused_container, state)?;
   }
 
   if state.pending_sync.needs_cursor_jump()
-    && config.value.general.cursor_jump.enabled
+    && state.config.value.general.cursor_jump.enabled
   {
-    jump_cursor(focused_container.clone(), state, config)?;
+    jump_cursor(focused_container.clone(), state)?;
   }
 
   if state.pending_sync.needs_focused_effect_update()
@@ -47,7 +44,7 @@ pub fn platform_sync(
     let prev_effects_window = state.prev_effects_window.clone();
 
     if let Ok(window) = focused_container.as_window_container() {
-      apply_window_effects(&window, true, config);
+      apply_window_effects(&window, true, &state.config);
       state.prev_effects_window = Some(window.clone());
     } else {
       state.prev_effects_window = None;
@@ -67,7 +64,7 @@ pub fn platform_sync(
       .filter(|window| window.id() != focused_container.id());
 
     for window in unfocused_windows {
-      apply_window_effects(&window, false, config);
+      apply_window_effects(&window, false, &state.config);
     }
   }
 
@@ -87,18 +84,12 @@ fn sync_focus(
     _ => return Ok(()),
   };
 
-  // Set focus to the given window handle. If the container is a normal
-  // window, then this will trigger a `PlatformEvent::WindowFocused` event.
-  if !state.platform.is_foreground_window(&native_window) {
-    if let Ok(window) = focused_container.as_window_container() {
-      info!("Setting focus to window: {window}");
-    } else {
-      info!("Setting focus to the desktop window.");
-    }
-
-    if let Err(err) = native_window.set_foreground() {
-      warn!("Failed to set foreground window: {}", err);
-    }
+  match native_window.set_foreground() {
+    Ok(_) => match native_window {
+      Some(window) => info!("Focused window: {window}"),
+      None => info!("Focused desktop window."),
+    },
+    Err(e) => tracing::error!("Failed to focus window: {}", e),
   }
 
   state.emit_event(WmEvent::FocusChanged {
@@ -171,7 +162,6 @@ fn windows_to_bring_to_front(
 fn redraw_containers(
   focused_container: &Container,
   state: &mut WmState,
-  config: &UserConfig,
 ) -> anyhow::Result<()> {
   let windows_to_redraw = state.windows_to_redraw();
   let windows_to_bring_to_front =
@@ -275,7 +265,7 @@ fn redraw_containers(
       &rect,
       &z_order,
       is_visible,
-      &config.value.general.hide_method,
+      &state.config.value.general.hide_method,
       window.has_pending_dpi_adjustment(),
     ) {
       warn!("Failed to set window position: {}", err);
@@ -304,8 +294,8 @@ fn redraw_containers(
     // effect). Since cloaked windows are normally always visible in the
     // taskbar, we only need to set visibility if `show_all_in_taskbar` is
     // `false`.
-    if config.value.general.hide_method == HideMethod::Cloak
-      && !config.value.general.show_all_in_taskbar
+    if state.config.value.general.hide_method == HideMethod::Cloak
+      && !state.config.value.general.show_all_in_taskbar
       && matches!(
         window.display_state(),
         DisplayState::Showing | DisplayState::Hiding
@@ -324,9 +314,8 @@ fn redraw_containers(
 fn jump_cursor(
   focused_container: Container,
   state: &WmState,
-  config: &UserConfig,
 ) -> anyhow::Result<()> {
-  let cursor_jump = &config.value.general.cursor_jump;
+  let cursor_jump = &state.config.value.general.cursor_jump;
 
   let jump_target = match cursor_jump.trigger {
     CursorJumpTrigger::WindowFocus => Some(focused_container),

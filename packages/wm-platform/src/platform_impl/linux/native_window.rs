@@ -10,14 +10,17 @@ pub struct NativeWindow {
   // Smithay doesn't expose a window ID (that I can find), so create our
   // own
   id: uuid::Uuid,
-  inner: Window,
+  inner: Option<Window>,
 }
 
 impl NativeWindow {
   #[must_use]
   pub fn new(inner: Window) -> Self {
     let id = uuid::Uuid::new_v4();
-    Self { id, inner }
+    Self {
+      id,
+      inner: Some(inner),
+    }
   }
 
   #[must_use]
@@ -82,7 +85,8 @@ impl NativeWindow {
   }
 
   pub fn set_foreground(&self) -> anyhow::Result<()> {
-    todo!()
+    self.set_activated(true);
+    Ok(())
   }
 
   pub fn show(&self) -> anyhow::Result<()> {
