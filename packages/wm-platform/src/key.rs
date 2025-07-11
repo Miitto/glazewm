@@ -1,5 +1,7 @@
 use wm_macros::KeyConversions;
 
+use crate::platform_impl::key::NativeKeyCode;
+
 pub trait IsKeyDownRaw {
   /// Returns `true` if the key is currently pressed down.
   fn is_down_raw(&self) -> bool;
@@ -8,9 +10,9 @@ pub trait IsKeyDownRaw {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, KeyConversions)]
 #[key(win = crate::raw::windows::key::WinKey, macos = NotYetImplemented, linux = crate::platform_impl::key::LinuxKey)]
 pub enum Key {
-  #[key("a", win = A, macos = !, linux = A)]
+  #[key("a", win = A, macos = !, linux = !)]
   A,
-  #[key("abntc1", win = AbntC1, macos = !, linux = !)]
+  #[key("abntc1", win = AbntC1, macos = !, linux = A)]
   AbntC1,
   #[key("abntc2", win = AbntC2, macos = !, linux = !)]
   AbntC2,
@@ -469,8 +471,8 @@ pub enum Key {
   #[key("none", win = None, macos = !, linux = !)]
   None,
 
-  #[key(..)]
-  Custom(u16),
+  #[key(..., win = Other, macos = !, linux = Other)]
+  Custom(NativeKeyCode),
 }
 
 impl Key {

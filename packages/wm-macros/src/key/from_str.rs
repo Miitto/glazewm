@@ -1,15 +1,26 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use super::{Key, attrs::variant::VariantAttr};
+use super::{
+  Key,
+  attrs::{enums::EnumAttr, variant::VariantAttr},
+};
+use crate::key::attrs::variant::VkValue;
 
 /// Converts a `KeyStrArm` into a match arm for the `from_str`
 /// implementation.
-fn to_match_arm(key: &Key) -> TokenStream {
+fn to_match_arm(key: &Key, attrs: &EnumAttr) -> TokenStream {
   let ident = &key.ident;
   match &key.attrs {
-    VariantAttr::Wildcard => {
+    VariantAttr::Wildcard(other_variants) => {
       // If the key is a wildcard, we match it to the `Custom` variant.
+
+      let win_enum = &attrs.win_enum;
+      let win_other_variant = match &other_variants.key_codes.win {
+        VkValue::Key(value) => quote! {#value},
+        _ => quote! {},
+      };
+
       quote! { _ => {
           #[cfg(target_os = "windows")]
           {
@@ -34,7 +45,7 @@ fn to_match_arm(key: &Key) -> TokenStream {
 
           // Key is valid if it doesn't require shift or alt to be pressed.
           match high_order {
-            0 => Some(Key::Custom(u16::from(low_order))),
+            0 => Some(Key::Custom(#win_enum::#win_other_variant(u16::from(low_order)))),
             _ => None,
           }
           }
@@ -64,14 +75,18 @@ fn to_match_arm(key: &Key) -> TokenStream {
 
 /// Creates a `from_str` implementation for the `Key` enum using the list
 /// of keys.
-pub fn make_from_str_impl(keys: &[Key]) -> TokenStream {
-  let arms = keys.iter().map(to_match_arm).filter(|arm| !arm.is_empty());
+pub fn make_from_str_impl(keys: &[Key], attrs: &EnumAttr) -> TokenStream {
+  let arms = keys
+    .iter()
+    .map(|k| to_match_arm(k, attrs))
+    .filter(|arm| !arm.is_empty());
 
   quote! {
     pub fn from_str(key: &str) -> Option<Self> {
       // Unpack the match arms (lines) made above, using `,` as the separator.
       match key {
         #(#arms),*
+        _ => None
       }
     }
   }

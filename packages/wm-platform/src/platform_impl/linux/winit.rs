@@ -14,7 +14,7 @@ use smithay::{
 };
 use thiserror::Error;
 
-use crate::{state::Glaze, PlatformData};
+use crate::{state::Glaze, EventLoopData, PlatformData};
 
 #[derive(Error, Debug)]
 pub enum WinitError {
@@ -33,10 +33,13 @@ pub enum WinitError {
 
 /// Creates an output window using `winit` to act as a virtual monitor.
 /// Used for testing
-pub fn init_winit(
-  event_loop: &mut EventLoop<PlatformData>,
+pub fn init_winit<D>(
+  event_loop: &mut EventLoop<D>,
   data: &mut PlatformData,
-) -> Result<(), WinitError> {
+) -> Result<(), WinitError>
+where
+  D: EventLoopData,
+{
   let display_handle = &mut data.display_handle;
   let state = &mut data.state;
 
@@ -74,6 +77,8 @@ pub fn init_winit(
   event_loop
     .handle()
     .insert_source(winit, move |event, (), data| {
+      let data = data.platform_data_mut();
+
       let display = &mut data.display_handle;
       let state = &mut data.state;
 

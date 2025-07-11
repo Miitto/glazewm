@@ -8,7 +8,7 @@ use crate::{
     named_parameter::NamedParameter,
     spanned_string::SpannedString,
   },
-  prelude::TPeek,
+  prelude::{TPeek, ToSpanError},
 };
 
 /// Custom keywords used when parsing the variant attributes.
@@ -31,7 +31,7 @@ mod kw {
 #[derive(Debug, Clone)]
 pub enum VariantAttr {
   Key(KeyAttr),
-  Wildcard,
+  Wildcard(WildcardAttr),
 }
 
 impl syn::parse::Parse for VariantAttr {
@@ -41,12 +41,12 @@ impl syn::parse::Parse for VariantAttr {
   /// `..` for the wildcard variant, or
   /// `"string" | "list", win = <key code>, macos = <key code>` for the key
   fn parse(input: ParseStream) -> syn::Result<Self> {
-    input
-      .parse::<IfElse<syn::Token![..], KeyAttr>>()
-      .map(|if_else| match if_else {
-        IfElse::If(_) => VariantAttr::Wildcard,
-        IfElse::Else(key_attr) => VariantAttr::Key(key_attr),
-      })
+    let parse = input.parse::<IfElse<WildcardAttr, KeyAttr>>();
+
+    parse.map(|if_else| match if_else {
+      IfElse::If(a) => VariantAttr::Wildcard(a),
+      IfElse::Else(key_attr) => VariantAttr::Key(key_attr),
+    })
   }
 }
 
@@ -74,6 +74,40 @@ impl syn::parse::Parse for KeyAttr {
          }| (strings, key_codes),
       )?;
     Ok(KeyAttr { strings, key_codes })
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct WildcardAttr {
+  pub key_codes: PlatformKeyCodes,
+}
+
+impl syn::parse::Parse for WildcardAttr {
+  /// Parses the wildcard attribute, which is just the key codes for each
+  /// platform.
+  /// Expected format: `win = <key code>, macos = <key code>`
+  fn parse(input: ParseStream) -> syn::Result<Self> {
+    let key_codes = input.parse::<Ordered<(syn::Token![...], PlatformKeyCodes), syn::Token![,]>>()
+      .map(
+        |Ordered {
+           items: (_, key_codes),
+           ..
+         }|  key_codes,
+      ).map_err(|mut e| {e.combine(syn::Error::new(e.span(), "Expected `..., win = <variant>, macos = <variant>, linux = <varaint>`")); e})?;
+    Ok(WildcardAttr { key_codes })
+  }
+}
+
+impl crate::common::peekable::Peekable for WildcardAttr {
+  fn peek<T>(stream: T) -> bool
+  where
+    T: crate::common::peekable::PeekableStream,
+  {
+    <syn::Token![...]>::peek(stream)
+  }
+
+  fn display() -> &'static str {
+    <syn::Token![...]>::display()
   }
 }
 

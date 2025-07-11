@@ -3800,6 +3800,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "wm-testing"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "home",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "wm-common",
+ "wm-platform",
+]
+
+[[package]]
 name = "wm-watcher"
 version = "0.0.0"
 dependencies = [

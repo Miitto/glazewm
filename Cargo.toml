@@ -1,7 +1,8 @@
 [workspace]
 resolver = "2"
 members = ["packages/*"]
-default-members = ["packages/wm", "packages/wm-cli", "packages/wm-watcher"]
+# default-members = ["packages/wm", "packages/wm-cli", "packages/wm-watcher"]
+default-members = ["packages/wm-testing"]
 
 [workspace.dependencies]
 anyhow = { version = "1", features = ["backtrace"] }
@@ -19,3 +20,4 @@ uuid = { version = "1", features = ["v4", "serde"] }
 calloop = "0.14.0"
 
 wm-macros = { path = "packages/wm-macros" }
+wm-platform = { path = "packages/wm-platform" }

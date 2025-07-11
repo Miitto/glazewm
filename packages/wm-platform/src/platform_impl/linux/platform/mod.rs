@@ -1,11 +1,18 @@
-use smithay::reexports::wayland_server::{
-  backend::InitError, Display, DisplayHandle,
-};
+use smithay::reexports::wayland_server::{Display, DisplayHandle};
 
+use super::winit::WinitError;
 use crate::{state::Glaze, EventLoopData};
 
 mod mouse;
 mod window;
+
+#[derive(thiserror::Error, Debug)]
+pub enum InitError {
+  #[error("failed to create display: {0}")]
+  Display(#[from] smithay::reexports::wayland_server::backend::InitError),
+  #[error("failed to create display handle: {0}")]
+  Handle(#[from] WinitError),
+}
 
 pub struct PlatformData {
   pub state: Glaze,
@@ -23,9 +30,13 @@ impl PlatformData {
     let handle = display.handle();
     let state = Glaze::new(event_loop, display);
 
-    Ok(PlatformData {
+    let mut data = PlatformData {
       state,
       display_handle: handle,
-    })
+    };
+
+    super::winit::init_winit(event_loop, &mut data)?;
+
+    Ok(data)
   }
 }

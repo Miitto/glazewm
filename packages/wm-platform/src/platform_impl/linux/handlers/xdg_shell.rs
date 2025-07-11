@@ -43,12 +43,9 @@ impl XdgShellHandler for Glaze {
     let native_window = NativeWindow::new(window);
     let window = self.windows.new_window(native_window).clone();
 
-    if let Err(DispatchError::DispatchError(e)) = self
-      .hooks
-      .dispatch_window_event(crate::WindowEvent::WindowShown(window))
-    {
-      tracing::error!("Failed to dispatch window shown event: {}", e);
-    }
+    self
+      .space
+      .map_element(window.inner().clone(), (0, 0), false);
   }
 
   /// Called whenever a window is closed

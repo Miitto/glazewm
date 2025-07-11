@@ -1,3 +1,6 @@
+#![allow(unused_variables)]
+// TODO: Remove this once the code is complete
+
 use smithay::desktop::Window;
 use wm_common::{
   Color, CornerStyle, HideMethod, OpacityValue, Rect, WindowState,
@@ -10,17 +13,18 @@ pub struct NativeWindow {
   // Smithay doesn't expose a window ID (that I can find), so create our
   // own
   id: uuid::Uuid,
-  inner: Option<Window>,
+  inner: Window,
 }
 
 impl NativeWindow {
   #[must_use]
   pub fn new(inner: Window) -> Self {
     let id = uuid::Uuid::new_v4();
-    Self {
-      id,
-      inner: Some(inner),
-    }
+    Self { id, inner }
+  }
+
+  pub(crate) fn inner(&self) -> &Window {
+    &self.inner
   }
 
   #[must_use]

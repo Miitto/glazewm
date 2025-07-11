@@ -24,7 +24,7 @@ use smithay::{
   },
 };
 
-use super::{windows::Windows, Hooks, PlatformData};
+use super::{windows::Windows, Hooks};
 use crate::EventLoopData;
 
 pub struct Glaze {

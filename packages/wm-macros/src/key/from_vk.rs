@@ -25,6 +25,26 @@ fn to_match_arm(key: &Key, enum_attrs: &EnumAttr, os: Os) -> TokenStream {
         quote! {}
       }
     }
+    super::attrs::variant::VariantAttr::Wildcard(other_variants) => {
+      let (value, prefix) = match os {
+        Os::Windows => {
+          (&other_variants.key_codes.win, &enum_attrs.win_enum)
+        }
+        Os::MacOS => {
+          (&other_variants.key_codes.macos, &enum_attrs.macos_enum)
+        }
+        Os::Linux => {
+          (&other_variants.key_codes.linux, &enum_attrs.linux_enum)
+        }
+      };
+
+      // Output the match arms.
+      if let VkValue::Key(value) = value {
+        quote! {#prefix::#value(v) => Self::Custom(v)}
+      } else {
+        quote! {}
+      }
+    }
     _ => {
       quote! {}
     }
@@ -38,8 +58,8 @@ pub fn make_from_vk_impl(
   enum_attrs: &EnumAttr,
 ) -> TokenStream {
   let win_enum = &enum_attrs.win_enum;
-  let macos_prefix = &enum_attrs.macos_enum;
-  let linux_prefix = &enum_attrs.linux_enum;
+  let mac_enum = &enum_attrs.macos_enum;
+  let linux_enum = &enum_attrs.linux_enum;
 
   let win_arms = keys
     .iter()
@@ -58,39 +78,24 @@ pub fn make_from_vk_impl(
 
   quote! {
     #[cfg(target_os = "windows")]
-    pub fn from_vk(vk: u16) -> Self {
-      let res = #win_enum::try_from(vk);
-      if let Ok(key) = res {
+    pub fn from_vk(key: #win_enum) -> Self {
         match key {
           #(#win_arms),*
         }
-      } else {
-        Self::Custom(vk)
-      }
     }
 
     #[cfg(target_os = "macos")]
-    pub fn from_vk(vk: u16) -> Self {
-      let res = #macos_prefix::try_from(vk);
-      if let Ok(key) = res {
+    pub fn from_vk(key: #mac_enum) -> Self {
         match key {
           #(#mac_arms),*
         }
-      } else {
-        Self::Custom(vk)
-      }
     }
 
     #[cfg(target_os = "linux")]
-    pub fn from_vk(vk: u16) -> Self {
-      let res = #linux_prefix::try_from(vk);
-      if let Ok(key) = res {
+    pub fn from_vk(key: #linux_enum) -> Self {
         match key {
           #(#linux_arms),*
         }
-      } else {
-        Self::Custom(vk)
-      }
     }
 
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]

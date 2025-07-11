@@ -12,7 +12,8 @@ use smithay::{
   utils::SERIAL_COUNTER,
 };
 
-use crate::state::Glaze;
+use super::key::LinuxKey;
+use crate::{state::Glaze, Key};
 
 impl Glaze {
   fn process_keyboard_event<I: InputBackend>(
@@ -28,10 +29,22 @@ impl Glaze {
       event.state(),
       serial,
       time,
-      |_, _, _| FilterResult::Forward, /* TODO: Can intercept
-                                        * keystrokes for the WM here,
-                                        * return
-                                        * [`FilterResult::Intercept`] */
+      |_data, _modifiers, key| {
+        let key = match LinuxKey::try_from(key.raw_code().raw()) {
+          Ok(key) => key,
+          Err(e) => {
+            tracing::warn!("Unknown linux key code: {}", e);
+            return FilterResult::Forward;
+          }
+        };
+
+        let _key = Key::from_vk(key);
+
+        FilterResult::Forward
+      }, /* TODO: Can intercept
+          * keystrokes for the WM here,
+          * return
+          * [`FilterResult::Intercept`] */
     );
   }
 

@@ -133,7 +133,7 @@ pub fn key_conversions(input: TokenStream) -> TokenStream {
     .collect();
 
   // Make each function impl
-  let from_str_impl = from_str::make_from_str_impl(&keys);
+  let from_str_impl = from_str::make_from_str_impl(&keys, &enum_attrs);
   let from_vk_impl = from_vk::make_from_vk_impl(&keys, &enum_attrs);
   let into_vk_impl = into_vk::make_into_vk_impl(&keys, &enum_attrs);
 

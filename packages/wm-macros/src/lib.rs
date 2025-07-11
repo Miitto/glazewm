@@ -179,7 +179,7 @@ pub fn key_conversions(input: TokenStream) -> TokenStream {
   key::key_conversions(input)
 }
 
-#[proc_macro_derive(TryToDiscriminant)]
+#[proc_macro_derive(TryToDiscriminant, attributes(other))]
 pub fn try_to_discriminant(input: TokenStream) -> TokenStream {
   try_to_enum_discriminant::try_to_enum_discriminant(input)
 }
