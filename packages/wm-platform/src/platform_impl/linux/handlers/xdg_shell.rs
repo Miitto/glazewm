@@ -152,10 +152,18 @@ impl XdgShellHandler for Glaze {
   }
 
   fn maximize_request(&mut self, surface: ToplevelSurface) {
+    surface.with_pending_state(|state| {
+      state.states.set(xdg_toplevel::State::Maximized);
+    });
     surface.send_configure();
   }
 
-  fn unmaximize_request(&mut self, _surface: ToplevelSurface) {}
+  fn unmaximize_request(&mut self, surface: ToplevelSurface) {
+    surface.with_pending_state(|state| {
+      state.states.unset(xdg_toplevel::State::Maximized);
+    });
+    surface.send_pending_configure();
+  }
 
   fn fullscreen_request(
     &mut self,
