@@ -7,12 +7,12 @@ pub trait IsKeyDownRaw {
   fn is_down_raw(&self) -> bool;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, KeyConversions)]
+#[derive(Debug, Clone, Copy, KeyConversions)]
 #[key(win = crate::raw::windows::key::WinKey, macos = NotYetImplemented, linux = crate::platform_impl::key::LinuxKey)]
 pub enum Key {
-  #[key("a", win = A, macos = !, linux = !)]
+  #[key("a", win = A, macos = !, linux = A)]
   A,
-  #[key("abntc1", win = AbntC1, macos = !, linux = A)]
+  #[key("abntc1", win = AbntC1, macos = !, linux = !)]
   AbntC1,
   #[key("abntc2", win = AbntC2, macos = !, linux = !)]
   AbntC2,
@@ -24,7 +24,7 @@ pub enum Key {
   Apps,
   #[key("attn", win = Attn, macos = !, linux = !)]
   Attn,
-  #[key("b", win = B, macos = !, linux = !)]
+  #[key("b", win = B, macos = !, linux = B)]
   B,
   #[key("back", win = Back, macos = !, linux = !)]
   Back,
@@ -42,7 +42,7 @@ pub enum Key {
   BrowserSearch,
   #[key("browser stop", win = BrowserStop, macos = !, linux = !)]
   BrowserStop,
-  #[key("c", win = C, macos = !, linux = !)]
+  #[key("c", win = C, macos = !, linux = C)]
   C,
   #[key("cancel", win = Cancel, macos = !, linux = !)]
   Cancel,
@@ -56,7 +56,7 @@ pub enum Key {
   Convert,
   #[key("crsel", win = Crsel, macos = !, linux = !)]
   Crsel,
-  #[key("d", win = D, macos = !, linux = !)]
+  #[key("d", win = D, macos = !, linux = D)]
   D,
   #[key("0", win = D0, macos = !, linux = !)]
   D0,
@@ -86,7 +86,7 @@ pub enum Key {
   Divide,
   #[key("down", win = Down, macos = !, linux = !)]
   Down,
-  #[key("e", win = E, macos = !, linux = !)]
+  #[key("e", win = E, macos = !, linux = E)]
   E,
   #[key("end", win = End, macos = !, linux = !)]
   End,
@@ -98,7 +98,7 @@ pub enum Key {
   Execute,
   #[key("exsel", win = Exsel, macos = !, linux = !)]
   Exsel,
-  #[key("f", win = F, macos = !, linux = !)]
+  #[key("f", win = F, macos = !, linux = F)]
   F,
   #[key("f1", win = F1, macos = !, linux = !)]
   F1,
@@ -150,7 +150,7 @@ pub enum Key {
   F24,
   #[key("final", win = Final, macos = !, linux = !)]
   Final,
-  #[key("g", win = G, macos = !, linux = !)]
+  #[key("g", win = G, macos = !, linux = G)]
   G,
   #[key("game pad a", win = GamepadA, macos = !, linux = !)]
   GamepadA,
@@ -200,13 +200,13 @@ pub enum Key {
   GamepadX,
   #[key("game pad y", win = GamepadY, macos = !, linux = !)]
   GamepadY,
-  #[key("h", win = H, macos = !, linux = !)]
+  #[key("h", win = H, macos = !, linux = H)]
   H,
   #[key("help", win = Help, macos = !, linux = !)]
   Help,
   #[key("home", win = Home, macos = !, linux = !)]
   Home,
-  #[key("i", win = I, macos = !, linux = !)]
+  #[key("i", win = I, macos = !, linux = I)]
   I,
   #[key("ico 00", win = Ico00, macos = !, linux = !)]
   Ico00,
@@ -220,17 +220,17 @@ pub enum Key {
   ImeOn,
   #[key("insert", win = Insert, macos = !, linux = !)]
   Insert,
-  #[key("j", win = J, macos = !, linux = !)]
+  #[key("j", win = J, macos = !, linux = J)]
   J,
   #[key("junja", win = Junja, macos = !, linux = !)]
   Junja,
-  #[key("k", win = K, macos = !, linux = !)]
+  #[key("k", win = K, macos = !, linux = K)]
   K,
   #[key("kana", win = Kana, macos = !, linux = !)]
   Kana,
   #[key("kanji", win = Kanji, macos = !, linux = !)]
   Kanji,
-  #[key("l", win = L, macos = !, linux = !)]
+  #[key("l", win = L, macos = !, linux = L)]
   L,
   #[key("launch app 1", win = LaunchApp1, macos = !, linux = !)]
   LaunchApp1,
@@ -252,7 +252,7 @@ pub enum Key {
   LShift,
   #[key("lwin" | "lwin key" | "left win" | "left win key", win = LWin, macos = !, linux = !)]
   LWin,
-  #[key("m", win = M, macos = !, linux = !)]
+  #[key("m", win = M, macos = !, linux = M)]
   M,
   #[key("m button", win = MButton, macos = !, linux = !)]
   MButton,
@@ -270,7 +270,7 @@ pub enum Key {
   ModeChange,
   #[key("multiply", win = Multiply, macos = !, linux = !)]
   Multiply,
-  #[key("n", win = N, macos = !, linux = !)]
+  #[key("n", win = N, macos = !, linux = N)]
   N,
   #[key("navigation accept" | "nav accept", win = NavigationAccept, macos = !, linux = !)]
   NavigationAccept,
@@ -316,7 +316,7 @@ pub enum Key {
   Numpad8,
   #[key("num pad 9" | "number pad 9", win = Numpad9, macos = !, linux = !)]
   Numpad9,
-  #[key("o", win = O, macos = !, linux = !)]
+  #[key("o", win = O, macos = !, linux = O)]
   O,
   #[key("oem 1", win = Oem1, macos = !, linux = !)]
   Oem1,
@@ -384,7 +384,7 @@ pub enum Key {
   OemReset,
   #[key("oem ws ctrl" | "oem ws control", win = OemWsCtrl, macos = !, linux = !)]
   OemWsCtrl,
-  #[key("p", win = P, macos = !, linux = !)]
+  #[key("p", win = P, macos = !, linux = P)]
   P,
   #[key("pa 1", win = PA1, macos = !, linux = !)]
   PA1,
@@ -400,9 +400,9 @@ pub enum Key {
   Prior,
   #[key("process" | "process key", win = Processkey, macos = !, linux = !)]
   Processkey,
-  #[key("q", win = Q, macos = !, linux = !)]
+  #[key("q", win = Q, macos = !, linux = Q)]
   Q,
-  #[key("r", win = R, macos = !, linux = !)]
+  #[key("r", win = R, macos = !, linux = R)]
   R,
   #[key("r button", win = Rbutton, macos = !, linux = !)]
   RButton,
@@ -418,7 +418,7 @@ pub enum Key {
   RShift,
   #[key("rwin" | "right win" | "rwin key" | "right win key", win = RWin, macos = !, linux = !)]
   RWin,
-  #[key("s", win = S, macos = !, linux = !)]
+  #[key("s", win = S, macos = !, linux = S)]
   S,
   #[key("scroll", win = Scroll, macos = !, linux = !)]
   Scroll,
@@ -436,15 +436,15 @@ pub enum Key {
   Space,
   #[key("subtract", win = Subtract, macos = !, linux = !)]
   Subtract,
-  #[key("t", win = T, macos = !, linux = !)]
+  #[key("t", win = T, macos = !, linux = T)]
   T,
   #[key("tab", win = Tab, macos = !, linux = !)]
   Tab,
-  #[key("u", win = U, macos = !, linux = !)]
+  #[key("u", win = U, macos = !, linux = U)]
   U,
   #[key("up" | "up arrow", win = Up, macos = !, linux = !)]
   Up,
-  #[key("v", win = V, macos = !, linux = !)]
+  #[key("v", win = V, macos = !, linux = V)]
   V,
   #[key("volume down", win = VolumeDown, macos = !, linux = !)]
   VolumeDown,
@@ -452,19 +452,19 @@ pub enum Key {
   VolumeMute,
   #[key("volume up", win = VolumeUp, macos = !, linux = !)]
   VolumeUp,
-  #[key("w", win = W, macos = !, linux = !)]
+  #[key("w", win = W, macos = !, linux = W)]
   W,
   #[key("win" | "win key", win = Virt(LWin), macos = !, linux = !)]
   Win,
-  #[key("x", win = X, macos = !, linux = !)]
+  #[key("x", win = X, macos = !, linux = X)]
   X,
   #[key("x button 1", win = XButton1, macos = !, linux = !)]
   XButton1,
   #[key("x button 2", win = XButton2, macos = !, linux = !)]
   XButton2,
-  #[key("y", win = Y, macos = !, linux = !)]
+  #[key("y", win = Y, macos = !, linux = Y)]
   Y,
-  #[key("z", win = Z, macos = !, linux = !)]
+  #[key("z", win = Z, macos = !, linux = Z)]
   Z,
   #[key("zoom", win = Zoom, macos = !, linux = !)]
   Zoom,
@@ -473,6 +473,24 @@ pub enum Key {
 
   #[key(..., win = Other, macos = !, linux = Other)]
   Custom(NativeKeyCode),
+}
+
+impl std::hash::Hash for Key {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    match self {
+      Self::Custom(code) => code.hash(state),
+      _ => self.into_vk().raw().hash(state),
+    }
+  }
+}
+
+impl PartialEq for Key {
+  fn eq(&self, other: &Self) -> bool {
+    match (self, other) {
+      (Key::Custom(a), Key::Custom(b)) => *a == *b,
+      _ => self.into_vk().raw() == other.into_vk().raw(),
+    }
+  }
 }
 
 impl Key {

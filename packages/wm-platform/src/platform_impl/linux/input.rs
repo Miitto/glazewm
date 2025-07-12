@@ -30,13 +30,7 @@ impl Glaze {
       serial,
       time,
       |_data, _modifiers, key| {
-        let key = match LinuxKey::try_from(key.raw_code().raw()) {
-          Ok(key) => key,
-          Err(e) => {
-            tracing::warn!("Unknown linux key code: {}", e);
-            return FilterResult::Forward;
-          }
-        };
+        let key = LinuxKey::from(key.raw_code().raw());
 
         let _key = Key::from_vk(key);
 
@@ -133,6 +127,7 @@ impl Glaze {
         );
         pointer.frame(self);
       }
+      #[allow(clippy::cast_possible_truncation)]
       InputEvent::PointerAxis { event, .. } => {
         let source = event.source();
 

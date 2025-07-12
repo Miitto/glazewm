@@ -2,8 +2,11 @@
 // TODO: Remove this once the code is complete
 
 use smithay::{
-  desktop::Window,
+  backend::renderer::element::AsRenderElements,
+  desktop::{space::SpaceElement, Window},
   reexports::wayland_protocols::xdg::shell::server::xdg_toplevel,
+  utils::IsAlive,
+  wayland::seat::WaylandFocus,
 };
 use wm_common::{
   Color, CornerStyle, HideMethod, OpacityValue, Rect, WindowState,
@@ -34,10 +37,6 @@ impl NativeWindow {
   #[must_use]
   pub fn needs_configure(&self) -> bool {
     self.needs_configure
-  }
-
-  pub(crate) fn inner(&self) -> &Window {
-    &self.inner
   }
 
   #[must_use]
@@ -159,5 +158,74 @@ impl std::ops::Deref for NativeWindow {
 impl std::ops::DerefMut for NativeWindow {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.inner
+  }
+}
+
+impl SpaceElement for NativeWindow {
+  fn bbox(
+    &self,
+  ) -> smithay::utils::Rectangle<i32, smithay::utils::Logical> {
+    self.inner.bbox()
+  }
+
+  fn is_in_input_region(
+    &self,
+    point: &smithay::utils::Point<f64, smithay::utils::Logical>,
+  ) -> bool {
+    self.inner.is_in_input_region(point)
+  }
+
+  fn set_activate(&self, activated: bool) {
+    self.inner.set_activate(activated);
+  }
+
+  fn output_enter(
+    &self,
+    output: &smithay::output::Output,
+    overlap: smithay::utils::Rectangle<i32, smithay::utils::Logical>,
+  ) {
+    self.inner.output_enter(output, overlap);
+  }
+
+  fn output_leave(&self, output: &smithay::output::Output) {
+    self.inner.output_leave(output);
+  }
+}
+
+impl IsAlive for NativeWindow {
+  fn alive(&self) -> bool {
+    self.inner.alive()
+  }
+}
+
+impl<R> AsRenderElements<R> for NativeWindow
+where
+  R: smithay::backend::renderer::ImportAll,
+  <R as smithay::backend::renderer::RendererSuper>::TextureId:
+    std::clone::Clone + 'static,
+{
+  type RenderElement = <smithay::desktop::Window as smithay::backend::renderer::element::AsRenderElements<R>>::RenderElement;
+
+  fn render_elements<C: From<Self::RenderElement>>(
+    &self,
+    renderer: &mut R,
+    location: smithay::utils::Point<i32, smithay::utils::Physical>,
+    scale: smithay::utils::Scale<f64>,
+    alpha: f32,
+  ) -> Vec<C> {
+    self.inner.render_elements(renderer, location, scale, alpha)
+  }
+}
+
+impl WaylandFocus for NativeWindow {
+  fn wl_surface(
+    &self,
+  ) -> Option<
+    std::borrow::Cow<
+      '_,
+      smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+    >,
+  > {
+    self.inner.wl_surface()
   }
 }

@@ -1,5 +1,4 @@
 use smithay::{
-  desktop::Window,
   input::pointer::{
     AxisFrame, ButtonEvent, GestureHoldBeginEvent, GestureHoldEndEvent,
     GesturePinchBeginEvent, GesturePinchEndEvent, GesturePinchUpdateEvent,
@@ -11,11 +10,11 @@ use smithay::{
   utils::{Logical, Point},
 };
 
-use crate::state::Glaze;
+use crate::{state::Glaze, NativeWindow};
 
 pub struct MoveSurfaceGrab {
   pub start_data: PointerGrabStartData<Glaze>,
-  pub window: Window,
+  pub window: NativeWindow,
   pub initial_window_location: Point<i32, Logical>,
 }
 

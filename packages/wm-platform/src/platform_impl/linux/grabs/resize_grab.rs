@@ -17,7 +17,7 @@ use smithay::{
   wayland::{compositor, shell::xdg::SurfaceCachedState},
 };
 
-use crate::state::Glaze;
+use crate::{state::Glaze, NativeWindow};
 
 bitflags::bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -44,7 +44,7 @@ impl From<xdg_toplevel::ResizeEdge> for ResizeEdge {
 
 pub struct ResizeSurfaceGrab {
   start_data: PointerGrabStartData<Glaze>,
-  window: Window,
+  window: NativeWindow,
 
   edges: ResizeEdge,
 
@@ -55,7 +55,7 @@ pub struct ResizeSurfaceGrab {
 impl ResizeSurfaceGrab {
   pub fn start(
     start_data: PointerGrabStartData<Glaze>,
-    window: Window,
+    window: NativeWindow,
     edges: ResizeEdge,
     initial_window_rect: Rectangle<i32, Logical>,
   ) -> Self {
@@ -348,7 +348,7 @@ impl ResizeSurfaceState {
 
 /// Should be called on `WlSurface::commit`
 pub fn handle_commit(
-  space: &mut Space<Window>,
+  space: &mut Space<NativeWindow>,
   surface: &WlSurface,
 ) -> Option<()> {
   let window = space

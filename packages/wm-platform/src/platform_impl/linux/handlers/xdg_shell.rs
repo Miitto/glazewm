@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use smithay::{
   delegate_xdg_shell,
   desktop::{
@@ -8,6 +10,7 @@ use smithay::{
     pointer::{Focus, GrabStartData as PointerGrabStartData},
     Seat,
   },
+  output::Output,
   reexports::{
     wayland_protocols::xdg::shell::server::xdg_toplevel,
     wayland_server::{
@@ -15,9 +18,10 @@ use smithay::{
       Resource,
     },
   },
-  utils::{Rectangle, Serial},
+  utils::{IsAlive, Rectangle, Serial},
   wayland::{
     compositor::with_states,
+    seat::WaylandFocus,
     shell::xdg::{
       PopupSurface, PositionerState, ToplevelSurface, XdgShellHandler,
       XdgShellState, XdgToplevelSurfaceData,
@@ -25,11 +29,33 @@ use smithay::{
   },
 };
 
+use super::fullscreen_output_geometry;
 use crate::{
   grabs::{MoveSurfaceGrab, ResizeSurfaceGrab},
   state::Glaze,
   DispatchError, NativeWindow,
 };
+
+#[derive(Default)]
+pub struct FullscreenSurface(RefCell<Option<NativeWindow>>);
+
+impl FullscreenSurface {
+  pub fn set(&self, window: NativeWindow) {
+    *self.0.borrow_mut() = Some(window);
+  }
+
+  pub fn get(&self) -> Option<NativeWindow> {
+    let mut window = self.0.borrow_mut();
+    if window.as_ref().map(|w| !w.alive()).unwrap_or(false) {
+      *window = None;
+    }
+    window.clone()
+  }
+
+  pub fn clear(&self) -> Option<NativeWindow> {
+    self.0.borrow_mut().take()
+  }
+}
 
 impl XdgShellHandler for Glaze {
   fn xdg_shell_state(&mut self) -> &mut XdgShellState {
@@ -55,9 +81,7 @@ impl XdgShellHandler for Glaze {
     let native_window = NativeWindow::new(window);
     let window = self.windows.new_window(native_window).clone();
 
-    self
-      .space
-      .map_element(window.inner().clone(), (0, 0), false);
+    self.space.map_element(window, (0, 0), false);
   }
 
   fn new_popup(
@@ -152,15 +176,37 @@ impl XdgShellHandler for Glaze {
   }
 
   fn maximize_request(&mut self, surface: ToplevelSurface) {
-    surface.with_pending_state(|state| {
-      state.states.set(xdg_toplevel::State::Maximized);
-    });
-    surface.send_configure();
+    if surface
+      .current_state()
+      .capabilities
+      .contains(xdg_toplevel::WmCapabilities::Maximize)
+    {
+      if let Some(window) = self.windows.find_from_surface(&surface) {
+        let outputs = self.space.outputs_for_element(&window);
+        let output = outputs
+          .first()
+          .or_else(|| self.space.outputs().next())
+          .expect("WM has no outputs");
+        let geometry = self.space.output_geometry(output).unwrap();
+
+        surface.with_pending_state(|state| {
+          state.states.set(xdg_toplevel::State::Maximized);
+          state.size = Some(geometry.size);
+        });
+      }
+    }
+
+    if surface.is_initial_configure_sent() {
+      surface.send_configure();
+    } else {
+      // Will be sent on initial configure
+    }
   }
 
   fn unmaximize_request(&mut self, surface: ToplevelSurface) {
     surface.with_pending_state(|state| {
       state.states.unset(xdg_toplevel::State::Maximized);
+      state.size = None;
     });
     surface.send_pending_configure();
   }
@@ -168,15 +214,75 @@ impl XdgShellHandler for Glaze {
   fn fullscreen_request(
     &mut self,
     surface: ToplevelSurface,
-    _output: Option<
+    mut wl_output: Option<
       smithay::reexports::wayland_server::protocol::wl_output::WlOutput,
     >,
   ) {
-    self
-      .windows
-      .find_from_surface(&surface)
-      .map(|window| window.mark_fullscreen(true));
-    surface.send_configure();
+    if surface
+      .current_state()
+      .capabilities
+      .contains(xdg_toplevel::WmCapabilities::Fullscreen)
+    {
+      // NOTE: This is only one part of the solution. We can set the
+      // location and configure size here, but the surface should be
+      // rendered fullscreen independently from its buffer size
+      let wl_surface = surface.wl_surface();
+
+      let output_geometry = fullscreen_output_geometry(
+        wl_surface,
+        wl_output.as_ref(),
+        &mut self.space,
+      );
+
+      if let Some(geometry) = output_geometry {
+        let output = wl_output
+          .as_ref()
+          .and_then(Output::from_resource)
+          .unwrap_or_else(|| self.space.outputs().next().unwrap().clone());
+
+        let client = if let Ok(client) =
+          self.display_handle.get_client(wl_surface.id())
+        {
+          client
+        } else {
+          return;
+        };
+
+        for output in output.client_outputs(&client) {
+          wl_output = Some(output);
+        }
+        let window = self
+          .space
+          .elements()
+          .find(|window| {
+            window.wl_surface().is_some_and(|s| &*s == wl_surface)
+          })
+          .unwrap();
+
+        surface.with_pending_state(|state| {
+          state.states.set(xdg_toplevel::State::Fullscreen);
+          state.size = Some(geometry.size);
+          state.fullscreen_output = wl_output;
+        });
+        output
+          .user_data()
+          .insert_if_missing(FullscreenSurface::default);
+        output
+          .user_data()
+          .get::<FullscreenSurface>()
+          .unwrap()
+          .set(window.clone());
+        tracing::trace!("Fullscreening: {:?}", window);
+      }
+    }
+
+    // The protocol demands us to always reply with a configure,
+    // regardless of we fulfilled the request or not
+    if surface.is_initial_configure_sent() {
+      surface.send_configure();
+    } else {
+      // Will be sent during initial configure
+    }
   }
 
   fn unfullscreen_request(&mut self, surface: ToplevelSurface) {
@@ -190,7 +296,7 @@ impl XdgShellHandler for Glaze {
   fn minimize_request(&mut self, surface: ToplevelSurface) {
     if let Some(window) = self.windows.find_from_surface(&surface).cloned()
     {
-      self.space.unmap_elem(window.inner());
+      self.space.unmap_elem(&window);
       self.windows.window_minimize(&window);
     } else {
       tracing::warn!("Minimize request for a non-existing window");
@@ -284,7 +390,7 @@ fn check_grab(
 /// Should be called on `WlSurface::commit`
 pub fn handle_commit(
   popups: &mut PopupManager,
-  space: &Space<Window>,
+  space: &Space<NativeWindow>,
   surface: &WlSurface,
 ) {
   // Handle toplevel commits.

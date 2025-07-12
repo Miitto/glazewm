@@ -1,7 +1,7 @@
 use std::{ffi::OsString, sync::Arc};
 
 use smithay::{
-  desktop::{PopupManager, Space, Window, WindowSurfaceType},
+  desktop::{PopupManager, Space, WindowSurfaceType},
   input::{keyboard::XkbConfig, Seat, SeatState},
   reexports::{
     calloop::{
@@ -24,7 +24,7 @@ use smithay::{
   },
 };
 
-use super::{windows::Windows, Hooks};
+use super::{windows::Windows, Hooks, NativeWindow};
 use crate::EventLoopData;
 
 pub struct Glaze {
@@ -34,7 +34,7 @@ pub struct Glaze {
   pub socket_name: OsString,
   pub display_handle: DisplayHandle,
 
-  pub space: Space<Window>,
+  pub space: Space<NativeWindow>,
   pub loop_signal: LoopSignal,
 
   pub state: State,
