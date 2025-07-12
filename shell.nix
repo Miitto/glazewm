@@ -25,5 +25,8 @@ in
       systemd
       seatd
       gtk3
+      libinput
+      libxkbcommon
+      libgbm
     ];
   }
