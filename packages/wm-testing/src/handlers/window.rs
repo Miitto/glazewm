@@ -5,7 +5,7 @@ pub struct WindowEventHandler {}
 
 // TODO: Remove this
 #[allow(unused_variables)]
-impl wm_platform::WindowEventHandler<State, crate::handlers::Handler>
+impl wm_platform::WindowEventHandler<crate::handlers::Handler>
   for WindowEventHandler
 {
   fn on_window_create(

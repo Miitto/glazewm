@@ -1,10 +1,12 @@
 use crate::PlatformData;
 
-pub trait EventHandler<D>: Sized {
-  type WindowEventHandler: WindowEventHandler<D, Self>;
-  type MouseEventHandler: MouseEventHandler<D, Self>;
-  type DisplayEventHandler: DisplayEventHandler<D, Self>;
-  type KeyEventHandler: KeyEventHandler<D, Self>;
+pub trait EventHandler: Sized {
+  type Data;
+
+  type WindowEventHandler: WindowEventHandler<Self>;
+  type MouseEventHandler: MouseEventHandler<Self>;
+  type DisplayEventHandler: DisplayEventHandler<Self>;
+  type KeyEventHandler: KeyEventHandler<Self>;
 
   fn window_event_handler(&mut self) -> &mut Self::WindowEventHandler;
   fn mouse_event_handler(&mut self) -> &mut Self::MouseEventHandler;
@@ -13,130 +15,130 @@ pub trait EventHandler<D>: Sized {
 }
 
 #[allow(unused_variables)]
-pub trait WindowEventHandler<D, H>
+pub trait WindowEventHandler<H>
 where
-  H: EventHandler<D>,
+  H: EventHandler,
 {
   fn on_window_create(
     &mut self,
-    data: &mut D,
+    data: &mut H::Data,
     window: &crate::NativeWindow,
   ) {
   }
 
   fn on_window_destroy(
     &mut self,
-    data: &mut D,
+    data: &mut H::Data,
     window: &crate::NativeWindow,
   ) {
   }
 
   fn on_window_hidden(
     &mut self,
-    data: &mut D,
+    data: &mut H::Data,
     window: &crate::NativeWindow,
   ) {
   }
 
   fn on_window_shown(
     &mut self,
-    data: &mut D,
+    data: &mut H::Data,
     window: &crate::NativeWindow,
   ) {
   }
 
   fn on_window_moved(
     &mut self,
-    data: &mut D,
+    data: &mut H::Data,
     window: &crate::NativeWindow,
   ) {
   }
 
   fn on_window_resized(
     &mut self,
-    data: &mut D,
+    data: &mut H::Data,
     window: &crate::NativeWindow,
   ) {
   }
 
   fn on_window_minimized(
     &mut self,
-    data: &mut D,
+    data: &mut H::Data,
     window: &crate::NativeWindow,
   ) {
   }
 
   fn on_window_minimized_end(
     &mut self,
-    data: &mut D,
+    data: &mut H::Data,
     window: &crate::NativeWindow,
   ) {
   }
 
   fn on_window_maximized(
     &mut self,
-    data: &mut D,
+    data: &mut H::Data,
     window: &crate::NativeWindow,
   ) {
   }
 
   fn on_window_maximized_end(
     &mut self,
-    data: &mut D,
+    data: &mut H::Data,
     window: &crate::NativeWindow,
   ) {
   }
 
   fn on_window_fullscreened(
     &mut self,
-    data: &mut D,
+    data: &mut H::Data,
     window: &crate::NativeWindow,
   ) {
   }
 
   fn on_window_fullscreened_end(
     &mut self,
-    data: &mut D,
+    data: &mut H::Data,
     window: &crate::NativeWindow,
   ) {
   }
 
   fn on_window_focused(
     &mut self,
-    data: &mut D,
+    data: &mut H::Data,
     window: &crate::NativeWindow,
   ) {
   }
 
   fn on_window_title_changed(
     &mut self,
-    data: &mut D,
+    data: &mut H::Data,
     window: &crate::NativeWindow,
   ) {
   }
 }
 
-pub trait MouseEventHandler<D, H>
+pub trait MouseEventHandler<H>
 where
-  H: EventHandler<D>,
+  H: EventHandler,
 {
 }
 
-pub trait DisplayEventHandler<D, H>
+pub trait DisplayEventHandler<H>
 where
-  H: EventHandler<D>,
+  H: EventHandler,
 {
 }
 
-pub trait KeyEventHandler<D, H>
+pub trait KeyEventHandler<H>
 where
-  H: EventHandler<D>,
+  H: EventHandler,
 {
   #[allow(unused_variables)]
   fn key_event(
     &mut self,
-    data: &mut D,
-    platform: &mut PlatformData<D, H>,
+    data: &mut H::Data,
+    platform: &mut PlatformData<H>,
     key: crate::KeyData,
   ) -> crate::KeyResponse {
     crate::KeyResponse::DontCare

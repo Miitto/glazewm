@@ -21,21 +21,24 @@ pub enum ZOrder {
   TopMost,
 }
 
-pub struct Data<D, H>
+pub struct Data<H>
 where
-  D: 'static,
-  H: EventHandler<D> + 'static,
+  H: EventHandler + 'static,
 {
-  pub user: D,
-  pub platform: PlatformData<D, H>,
+  pub user: H::Data,
+  pub platform: PlatformData<H>,
   pub handler: H,
 }
 
-impl<D, H> Data<D, H>
+impl<H> Data<H>
 where
-  H: EventHandler<D>,
+  H: EventHandler,
 {
-  pub fn new(user: D, platform: PlatformData<D, H>, handler: H) -> Self {
+  pub fn new(
+    user: H::Data,
+    platform: PlatformData<H>,
+    handler: H,
+  ) -> Self {
     Self {
       user,
       platform,

@@ -12,24 +12,23 @@ use smithay::{
 
 use crate::{Data, EventHandler, NativeWindow};
 
-pub struct MoveSurfaceGrab<D, H>
+pub struct MoveSurfaceGrab<H>
 where
-  D: 'static,
-  H: EventHandler<D> + 'static,
+  H: EventHandler + 'static,
 {
-  pub start_data: PointerGrabStartData<Data<D, H>>,
+  pub start_data: PointerGrabStartData<Data<H>>,
   pub window: NativeWindow,
   pub initial_window_location: Point<i32, Logical>,
 }
 
-impl<D, H> PointerGrab<Data<D, H>> for MoveSurfaceGrab<D, H>
+impl<H> PointerGrab<Data<H>> for MoveSurfaceGrab<H>
 where
-  H: EventHandler<D>,
+  H: EventHandler,
 {
   fn motion(
     &mut self,
-    data: &mut Data<D, H>,
-    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
+    data: &mut Data<H>,
+    handle: &mut PointerInnerHandle<'_, Data<H>>,
     _focus: Option<(WlSurface, Point<f64, Logical>)>,
     event: &MotionEvent,
   ) {
@@ -49,8 +48,8 @@ where
 
   fn relative_motion(
     &mut self,
-    data: &mut Data<D, H>,
-    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
+    data: &mut Data<H>,
+    handle: &mut PointerInnerHandle<'_, Data<H>>,
     focus: Option<(WlSurface, Point<f64, Logical>)>,
     event: &RelativeMotionEvent,
   ) {
@@ -59,8 +58,8 @@ where
 
   fn button(
     &mut self,
-    data: &mut Data<D, H>,
-    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
+    data: &mut Data<H>,
+    handle: &mut PointerInnerHandle<'_, Data<H>>,
     event: &ButtonEvent,
   ) {
     // The button is a button code as defined in the
@@ -77,8 +76,8 @@ where
 
   fn axis(
     &mut self,
-    data: &mut Data<D, H>,
-    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
+    data: &mut Data<H>,
+    handle: &mut PointerInnerHandle<'_, Data<H>>,
     details: AxisFrame,
   ) {
     handle.axis(data, details);
@@ -86,16 +85,16 @@ where
 
   fn frame(
     &mut self,
-    data: &mut Data<D, H>,
-    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
+    data: &mut Data<H>,
+    handle: &mut PointerInnerHandle<'_, Data<H>>,
   ) {
     handle.frame(data);
   }
 
   fn gesture_swipe_begin(
     &mut self,
-    data: &mut Data<D, H>,
-    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
+    data: &mut Data<H>,
+    handle: &mut PointerInnerHandle<'_, Data<H>>,
     event: &GestureSwipeBeginEvent,
   ) {
     handle.gesture_swipe_begin(data, event);
@@ -103,8 +102,8 @@ where
 
   fn gesture_swipe_update(
     &mut self,
-    data: &mut Data<D, H>,
-    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
+    data: &mut Data<H>,
+    handle: &mut PointerInnerHandle<'_, Data<H>>,
     event: &GestureSwipeUpdateEvent,
   ) {
     handle.gesture_swipe_update(data, event);
@@ -112,8 +111,8 @@ where
 
   fn gesture_swipe_end(
     &mut self,
-    data: &mut Data<D, H>,
-    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
+    data: &mut Data<H>,
+    handle: &mut PointerInnerHandle<'_, Data<H>>,
     event: &GestureSwipeEndEvent,
   ) {
     handle.gesture_swipe_end(data, event);
@@ -121,8 +120,8 @@ where
 
   fn gesture_pinch_begin(
     &mut self,
-    data: &mut Data<D, H>,
-    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
+    data: &mut Data<H>,
+    handle: &mut PointerInnerHandle<'_, Data<H>>,
     event: &GesturePinchBeginEvent,
   ) {
     handle.gesture_pinch_begin(data, event);
@@ -130,8 +129,8 @@ where
 
   fn gesture_pinch_update(
     &mut self,
-    data: &mut Data<D, H>,
-    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
+    data: &mut Data<H>,
+    handle: &mut PointerInnerHandle<'_, Data<H>>,
     event: &GesturePinchUpdateEvent,
   ) {
     handle.gesture_pinch_update(data, event);
@@ -139,8 +138,8 @@ where
 
   fn gesture_pinch_end(
     &mut self,
-    data: &mut Data<D, H>,
-    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
+    data: &mut Data<H>,
+    handle: &mut PointerInnerHandle<'_, Data<H>>,
     event: &GesturePinchEndEvent,
   ) {
     handle.gesture_pinch_end(data, event);
@@ -148,8 +147,8 @@ where
 
   fn gesture_hold_begin(
     &mut self,
-    data: &mut Data<D, H>,
-    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
+    data: &mut Data<H>,
+    handle: &mut PointerInnerHandle<'_, Data<H>>,
     event: &GestureHoldBeginEvent,
   ) {
     handle.gesture_hold_begin(data, event);
@@ -157,16 +156,16 @@ where
 
   fn gesture_hold_end(
     &mut self,
-    data: &mut Data<D, H>,
-    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
+    data: &mut Data<H>,
+    handle: &mut PointerInnerHandle<'_, Data<H>>,
     event: &GestureHoldEndEvent,
   ) {
     handle.gesture_hold_end(data, event);
   }
 
-  fn start_data(&self) -> &PointerGrabStartData<Data<D, H>> {
+  fn start_data(&self) -> &PointerGrabStartData<Data<H>> {
     &self.start_data
   }
 
-  fn unset(&mut self, _data: &mut Data<D, H>) {}
+  fn unset(&mut self, _data: &mut Data<H>) {}
 }

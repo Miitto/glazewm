@@ -13,7 +13,9 @@ pub struct Handler {
   key: key::KeyEventHandler,
 }
 
-impl wm_platform::EventHandler<State> for Handler {
+impl wm_platform::EventHandler for Handler {
+  type Data = State;
+
   type WindowEventHandler = window::WindowEventHandler;
 
   type MouseEventHandler = mouse::MouseEventHandler;

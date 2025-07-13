@@ -27,10 +27,9 @@ use smithay::{
 use super::{windows::Windows, NativeWindow};
 use crate::{Data, EventHandler};
 
-pub struct Glaze<D, H>
+pub struct Glaze<H>
 where
-  D: 'static,
-  H: EventHandler<D> + 'static,
+  H: EventHandler + 'static,
 {
   pub start_time: std::time::Instant,
   pub clock: Clock<Monotonic>,
@@ -41,55 +40,53 @@ where
   pub space: Space<NativeWindow>,
   pub loop_signal: LoopSignal,
 
-  pub state: State<D, H>,
+  pub state: State<H>,
 
   pub popups: PopupManager,
 
-  pub seat: Seat<Data<D, H>>,
+  pub seat: Seat<Data<H>>,
 
   pub windows: Windows,
   pub input: crate::input::InputData,
 }
 
-pub struct State<D, H>
+pub struct State<H>
 where
-  D: 'static,
-  H: EventHandler<D> + 'static,
+  H: EventHandler + 'static,
 {
   pub compositor: CompositorState,
   pub xdg_shell: XdgShellState,
   pub shm: ShmState,
   pub output_manager: OutputManagerState,
-  pub seat: SeatState<Data<D, H>>,
+  pub seat: SeatState<Data<H>>,
   pub data_device: DataDeviceState,
 }
 
-impl<D, H> Glaze<D, H>
+impl<H> Glaze<H>
 where
-  D: 'static,
-  H: EventHandler<D> + 'static,
+  H: EventHandler + 'static,
 {
   pub fn new(
-    event_loop: &mut EventLoop<Data<D, H>>,
-    display: Display<Data<D, H>>,
+    event_loop: &mut EventLoop<Data<H>>,
+    display: Display<Data<H>>,
   ) -> Self {
     let start_time = std::time::Instant::now();
 
     let dh = display.handle();
 
     // Compositor State
-    let compositor_state = CompositorState::new::<Data<D, H>>(&dh);
+    let compositor_state = CompositorState::new::<Data<H>>(&dh);
     // State for desktop windows, and their popups
-    let xdg_shell_state = XdgShellState::new::<Data<D, H>>(&dh);
+    let xdg_shell_state = XdgShellState::new::<Data<H>>(&dh);
     // Shared memory for the compositor and wayland clients
-    let shm_state = ShmState::new::<Data<D, H>>(&dh, vec![]);
+    let shm_state = ShmState::new::<Data<H>>(&dh, vec![]);
     // An output is an area of space that the compositor uses, such as a
     // monitor. This uses the xdg-output extension
     let output_manager_state =
-      OutputManagerState::new_with_xdg_output::<Data<D, H>>(&dh);
+      OutputManagerState::new_with_xdg_output::<Data<H>>(&dh);
     let seat_state = SeatState::new();
     // Copy-Paste and drag operations
-    let data_device_state = DataDeviceState::new::<Data<D, H>>(&dh);
+    let data_device_state = DataDeviceState::new::<Data<H>>(&dh);
 
     let mut state = State {
       compositor: compositor_state,
@@ -105,7 +102,7 @@ where
     // A seat is a group of keyboards, pointer and touch devices.
     // A seat typically has a pointer and maintains a keyboard focus and a
     // pointer focus.
-    let mut seat: Seat<Data<D, H>> = state.seat.new_wl_seat(&dh, "winit");
+    let mut seat: Seat<Data<H>> = state.seat.new_wl_seat(&dh, "winit");
 
     // Notify clients that we have a keyboard, for the sake of the example
     // we assume that keyboard is always present. You may want to track
@@ -150,11 +147,11 @@ where
 
   /// Connect wayland to the event loop
   fn init_wayland_listener(
-    display: Display<Data<D, H>>,
-    event_loop: &mut EventLoop<Data<D, H>>,
+    display: Display<Data<H>>,
+    event_loop: &mut EventLoop<Data<H>>,
   ) -> OsString
   where
-    H: EventHandler<D> + 'static,
+    H: EventHandler + 'static,
   {
     // Creates a new listening socket, automatically choosing the next
     // available `wayland` socket name.

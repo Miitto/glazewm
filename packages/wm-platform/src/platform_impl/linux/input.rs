@@ -20,9 +20,9 @@ pub struct InputData {
   pub pressed_keys: Vec<Key>,
 }
 
-impl<D, H> Data<D, H>
+impl<H> Data<H>
 where
-  H: EventHandler<D>,
+  H: EventHandler,
 {
   fn process_keyboard_event<I: InputBackend>(
     &mut self,

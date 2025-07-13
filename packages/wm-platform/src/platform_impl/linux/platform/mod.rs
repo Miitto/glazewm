@@ -14,23 +14,22 @@ pub enum InitError {
   Handle(#[from] WinitError),
 }
 
-pub struct PlatformData<D, H>
+pub struct PlatformData<H>
 where
-  D: 'static,
-  H: EventHandler<D> + 'static,
+  H: EventHandler + 'static,
 {
-  pub state: Glaze<D, H>,
+  pub state: Glaze<H>,
   pub display_handle: DisplayHandle,
 }
 
-impl<D, H> PlatformData<D, H>
+impl<H> PlatformData<H>
 where
-  H: EventHandler<D> + 'static,
+  H: EventHandler + 'static,
 {
   pub fn new(
-    event_loop: &mut calloop::EventLoop<Data<D, H>>,
+    event_loop: &mut calloop::EventLoop<Data<H>>,
   ) -> Result<Self, InitError> {
-    let display: Display<Data<D, H>> = Display::new()?;
+    let display: Display<Data<H>> = Display::new()?;
     let handle = display.handle();
     let state = Glaze::new(event_loop, display);
 

@@ -4,9 +4,9 @@ use smithay::utils::SERIAL_COUNTER;
 
 use crate::{Data, EventHandler};
 
-impl<D, H> Data<D, H>
+impl<H> Data<H>
 where
-  H: EventHandler<D>,
+  H: EventHandler,
 {
   pub fn mouse_position(&self) -> anyhow::Result<wm_common::Point> {
     let state = &self.platform.state;

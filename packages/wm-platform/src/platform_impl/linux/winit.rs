@@ -33,12 +33,12 @@ pub enum WinitError {
 
 /// Creates an output window using `winit` to act as a virtual monitor.
 /// Used for testing
-pub fn init_winit<D, H>(
-  event_loop: &mut EventLoop<Data<D, H>>,
-  data: &mut PlatformData<D, H>,
+pub fn init_winit<H>(
+  event_loop: &mut EventLoop<Data<H>>,
+  data: &mut PlatformData<H>,
 ) -> Result<(), WinitError>
 where
-  H: EventHandler<D>,
+  H: EventHandler,
 {
   let display_handle = &mut data.display_handle;
   let state = &mut data.state;
@@ -60,7 +60,7 @@ where
     },
   );
   tracing::info!("Creating output: {:?}", output.name());
-  let _global = output.create_global::<Data<D, H>>(display_handle);
+  let _global = output.create_global::<Data<H>>(display_handle);
   tracing::info!("Output global created");
   output.change_current_state(
     Some(mode),

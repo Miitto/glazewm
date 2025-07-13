@@ -3,4 +3,4 @@
 use super::PlatformData;
 use crate::EventHandler;
 
-impl<D, H> PlatformData<D, H> where H: EventHandler<D> {}
+impl<H> PlatformData<H> where H: EventHandler {}

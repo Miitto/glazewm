@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 
 use smithay::{
+  delegate_xdg_shell,
   desktop::{
     find_popup_root_surface, get_popup_toplevel_coords, PopupKind,
     PopupManager, Space, Window,
@@ -56,10 +57,9 @@ impl FullscreenSurface {
   }
 }
 
-impl<D, H> XdgShellHandler for Data<D, H>
+impl<H> XdgShellHandler for Data<H>
 where
-  D: 'static,
-  H: EventHandler<D> + 'static,
+  H: EventHandler + 'static,
 {
   fn xdg_shell_state(&mut self) -> &mut XdgShellState {
     &mut self.platform.state.state.xdg_shell
@@ -428,76 +428,15 @@ where
   fn parent_changed(&mut self, _surface: ToplevelSurface) {}
 }
 
-/// Macro expansion of `xdg_shell_delegate`! since Data uses generics
-#[allow(clippy::semicolon_if_nothing_returned)]
-mod xdg_shell_delegate {
-  use smithay::reexports::wayland_server;
+delegate_xdg_shell!(@<H: EventHandler + 'static> Data<H>);
 
-  use crate::{Data, EventHandler};
-  impl<D: 'static, H: EventHandler<D> + 'static> wayland_server::GlobalDispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,()>for Data<D, H>{
-    fn bind(state: &mut Self,dhandle: &wayland_server::DisplayHandle,client: &wayland_server::Client,resource:wayland_server::New<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase>,global_data: &(),data_init: &mut wayland_server::DataInit<'_,Self>,){
-        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::GlobalDispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,(),Self>>::bind(state,dhandle,client,resource,global_data,data_init)
-    }
-    fn can_view(client:wayland_server::Client,global_data: &()) -> bool {
-        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::GlobalDispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,(),Self>>::can_view(client,global_data)
-    }
-
-    }
-  impl<D: 'static, H: EventHandler<D> + 'static> wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,smithay::wayland::shell::xdg::XdgWmBaseUserData>for Data<D, H>{
-    fn request(state: &mut Self,client: &wayland_server::Client,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,request: <smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase as wayland_server::Resource>::Request,data: &smithay::wayland::shell::xdg::XdgWmBaseUserData,dhandle: &wayland_server::DisplayHandle,data_init: &mut wayland_server::DataInit<'_,Self>,){
-        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,smithay::wayland::shell::xdg::XdgWmBaseUserData,Self>>::request(state,client,resource,request,data,dhandle,data_init)
-    }
-    fn destroyed(state: &mut Self,client:wayland_server::backend::ClientId,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,data: &smithay::wayland::shell::xdg::XdgWmBaseUserData){
-        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,smithay::wayland::shell::xdg::XdgWmBaseUserData,Self>>::destroyed(state,client,resource,data)
-    }
-
-    }
-  impl<D : 'static, H: EventHandler<D> + 'static> wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_positioner::XdgPositioner,smithay::wayland::shell::xdg::XdgPositionerUserData>for Data<D, H>{
-    fn request(state: &mut Self,client: &wayland_server::Client,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_positioner::XdgPositioner,request: <smithay::reexports::wayland_protocols::xdg::shell::server::xdg_positioner::XdgPositioner as wayland_server::Resource>::Request,data: &smithay::wayland::shell::xdg::XdgPositionerUserData,dhandle: &wayland_server::DisplayHandle,data_init: &mut wayland_server::DataInit<'_,Self>,){
-        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_positioner::XdgPositioner,smithay::wayland::shell::xdg::XdgPositionerUserData,Self>>::request(state,client,resource,request,data,dhandle,data_init)
-    }
-    fn destroyed(state: &mut Self,client:wayland_server::backend::ClientId,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_positioner::XdgPositioner,data: &smithay::wayland::shell::xdg::XdgPositionerUserData){
-        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_positioner::XdgPositioner,smithay::wayland::shell::xdg::XdgPositionerUserData,Self>>::destroyed(state,client,resource,data)
-    }
-
-    }
-  impl<D : 'static, H: EventHandler<D> + 'static> wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_popup::XdgPopup,smithay::wayland::shell::xdg::XdgShellSurfaceUserData>for Data<D, H>{
-    fn request(state: &mut Self,client: &wayland_server::Client,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_popup::XdgPopup,request: <smithay::reexports::wayland_protocols::xdg::shell::server::xdg_popup::XdgPopup as wayland_server::Resource>::Request,data: &smithay::wayland::shell::xdg::XdgShellSurfaceUserData,dhandle: &wayland_server::DisplayHandle,data_init: &mut wayland_server::DataInit<'_,Self>,){
-        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_popup::XdgPopup,smithay::wayland::shell::xdg::XdgShellSurfaceUserData,Self>>::request(state,client,resource,request,data,dhandle,data_init)
-    }
-    fn destroyed(state: &mut Self,client:wayland_server::backend::ClientId,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_popup::XdgPopup,data: &smithay::wayland::shell::xdg::XdgShellSurfaceUserData){
-        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_popup::XdgPopup,smithay::wayland::shell::xdg::XdgShellSurfaceUserData,Self>>::destroyed(state,client,resource,data)
-    }
-
-    }
-  impl<D : 'static, H: EventHandler<D> + 'static> wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface::XdgSurface,smithay::wayland::shell::xdg::XdgSurfaceUserData>for Data<D, H>{
-    fn request(state: &mut Self,client: &wayland_server::Client,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface::XdgSurface,request: <smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface::XdgSurface as wayland_server::Resource>::Request,data: &smithay::wayland::shell::xdg::XdgSurfaceUserData,dhandle: &wayland_server::DisplayHandle,data_init: &mut wayland_server::DataInit<'_,Self>,){
-        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface::XdgSurface,smithay::wayland::shell::xdg::XdgSurfaceUserData,Self>>::request(state,client,resource,request,data,dhandle,data_init)
-    }
-    fn destroyed(state: &mut Self,client:wayland_server::backend::ClientId,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface::XdgSurface,data: &smithay::wayland::shell::xdg::XdgSurfaceUserData){
-        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface::XdgSurface,smithay::wayland::shell::xdg::XdgSurfaceUserData,Self>>::destroyed(state,client,resource,data)
-    }
-
-    }
-  impl<D : 'static, H: EventHandler<D> + 'static> wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::XdgToplevel,smithay::wayland::shell::xdg::XdgShellSurfaceUserData>for Data<D, H>{
-    fn request(state: &mut Self,client: &wayland_server::Client,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::XdgToplevel,request: <smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::XdgToplevel as wayland_server::Resource>::Request,data: &smithay::wayland::shell::xdg::XdgShellSurfaceUserData,dhandle: &wayland_server::DisplayHandle,data_init: &mut wayland_server::DataInit<'_,Self>,){
-        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::XdgToplevel,smithay::wayland::shell::xdg::XdgShellSurfaceUserData,Self>>::request(state,client,resource,request,data,dhandle,data_init)
-    }
-    fn destroyed(state: &mut Self,client:wayland_server::backend::ClientId,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::XdgToplevel,data: &smithay::wayland::shell::xdg::XdgShellSurfaceUserData){
-        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::XdgToplevel,smithay::wayland::shell::xdg::XdgShellSurfaceUserData,Self>>::destroyed(state,client,resource,data)
-    }
-
-    }
-}
-
-fn check_grab<D, H>(
-  seat: &Seat<Data<D, H>>,
+fn check_grab<H>(
+  seat: &Seat<Data<H>>,
   surface: &WlSurface,
   serial: Serial,
-) -> Option<PointerGrabStartData<Data<D, H>>>
+) -> Option<PointerGrabStartData<Data<H>>>
 where
-  D: 'static,
-  H: EventHandler<D> + 'static,
+  H: EventHandler + 'static,
 {
   let pointer = seat.get_pointer()?;
 
@@ -560,9 +499,9 @@ pub fn handle_commit(
   }
 }
 
-impl<D, H> Glaze<D, H>
+impl<H> Glaze<H>
 where
-  H: EventHandler<D>,
+  H: EventHandler,
 {
   fn unconstrain_popup(&self, popup: &PopupSurface) {
     let Ok(root) = find_popup_root_surface(&PopupKind::Xdg(popup.clone()))
