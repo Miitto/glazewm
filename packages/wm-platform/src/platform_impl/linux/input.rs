@@ -13,9 +13,17 @@ use smithay::{
 };
 
 use super::key::LinuxKey;
-use crate::{state::Glaze, Key};
+use crate::{Data, EventHandler, Key, KeyData, KeyEventHandler};
 
-impl Glaze {
+#[derive(Default)]
+pub struct InputData {
+  pub pressed_keys: Vec<Key>,
+}
+
+impl<D, H> Data<D, H>
+where
+  H: EventHandler<D>,
+{
   fn process_keyboard_event<I: InputBackend>(
     &mut self,
     event: &I::KeyboardKeyEvent,
@@ -23,16 +31,29 @@ impl Glaze {
     let serial = SERIAL_COUNTER.next_serial();
     let time = Event::time_msec(event);
 
-    self.seat.get_keyboard().unwrap().input::<(), _>(
+    let state = &mut self.platform.state;
+
+    state.seat.get_keyboard().unwrap().input::<(), _>(
       self,
       event.key_code(),
       event.state(),
       serial,
       time,
-      |_data, _modifiers, key| {
+      |data, _modifiers, key| {
         let key = LinuxKey::from(key.raw_code().raw());
 
-        let _key = Key::from_vk(key);
+        let key = Key::from_vk(key);
+
+        let key_data = KeyData {
+          key,
+          pressed_keys: data.platform.state.input.pressed_keys.clone(),
+        };
+
+        data.handler.key_event_handler().key_event(
+          &mut data.user,
+          &mut data.platform,
+          key_data,
+        );
 
         FilterResult::Forward
       }, /* TODO: Can intercept
@@ -46,18 +67,19 @@ impl Glaze {
     &mut self,
     event: &I::PointerMotionAbsoluteEvent,
   ) {
-    let output = self.space.outputs().next().unwrap();
+    let state = &mut self.platform.state;
+    let output = state.space.outputs().next().unwrap();
 
-    let output_geo = self.space.output_geometry(output).unwrap();
+    let output_geo = state.space.output_geometry(output).unwrap();
 
     let pos = event.position_transformed(output_geo.size)
       + output_geo.loc.to_f64();
 
     let serial = SERIAL_COUNTER.next_serial();
 
-    let pointer = self.seat.get_pointer().unwrap();
+    let pointer = state.seat.get_pointer().unwrap();
 
-    let under = self.surface_under(pos);
+    let under = state.surface_under(pos);
 
     pointer.motion(
       self,
@@ -83,8 +105,12 @@ impl Glaze {
         self.process_pointer_motion_absolute::<I>(&event);
       }
       InputEvent::PointerButton { event, .. } => {
-        let pointer = self.seat.get_pointer().unwrap();
-        let keyboard = self.seat.get_keyboard().unwrap();
+        let (pointer, keyboard) = {
+          let state = &mut self.platform.state;
+          let pointer = state.seat.get_pointer().unwrap();
+          let keyboard = state.seat.get_keyboard().unwrap();
+          (pointer, keyboard)
+        };
 
         let serial = SERIAL_COUNTER.next_serial();
 
@@ -94,21 +120,23 @@ impl Glaze {
 
         if ButtonState::Pressed == button_state && !pointer.is_grabbed() {
           if let Some((window, _loc)) = self
+            .platform
+            .state
             .space
             .element_under(pointer.current_location())
             .map(|(w, l)| (w.clone(), l))
           {
-            self.space.raise_element(&window, true);
+            self.platform.state.space.raise_element(&window, true);
             keyboard.set_focus(
               self,
               Some(window.toplevel().unwrap().wl_surface().clone()),
               serial,
             );
-            self.space.elements().for_each(|window| {
+            self.platform.state.space.elements().for_each(|window| {
               window.toplevel().unwrap().send_pending_configure();
             });
           } else {
-            self.space.elements().for_each(|window| {
+            self.platform.state.space.elements().for_each(|window| {
               window.set_activated(false);
               window.toplevel().unwrap().send_pending_configure();
             });
@@ -129,6 +157,7 @@ impl Glaze {
       }
       #[allow(clippy::cast_possible_truncation)]
       InputEvent::PointerAxis { event, .. } => {
+        let state = &mut self.platform.state;
         let source = event.source();
 
         let horizontal_amount =
@@ -167,7 +196,7 @@ impl Glaze {
           }
         }
 
-        let pointer = self.seat.get_pointer().unwrap();
+        let pointer = state.seat.get_pointer().unwrap();
         pointer.axis(self, frame);
         pointer.frame(self);
       }

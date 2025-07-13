@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 
 use smithay::{
-  delegate_xdg_shell,
   desktop::{
     find_popup_root_surface, get_popup_toplevel_coords, PopupKind,
     PopupManager, Space, Window,
@@ -33,7 +32,7 @@ use super::fullscreen_output_geometry;
 use crate::{
   grabs::{MoveSurfaceGrab, ResizeSurfaceGrab},
   state::Glaze,
-  DispatchError, NativeWindow,
+  Data, EventHandler, NativeWindow, WindowEventHandler,
 };
 
 #[derive(Default)]
@@ -46,7 +45,7 @@ impl FullscreenSurface {
 
   pub fn get(&self) -> Option<NativeWindow> {
     let mut window = self.0.borrow_mut();
-    if window.as_ref().map(|w| !w.alive()).unwrap_or(false) {
+    if window.as_ref().is_some_and(|w| !w.alive()) {
       *window = None;
     }
     window.clone()
@@ -57,9 +56,13 @@ impl FullscreenSurface {
   }
 }
 
-impl XdgShellHandler for Glaze {
+impl<D, H> XdgShellHandler for Data<D, H>
+where
+  D: 'static,
+  H: EventHandler<D> + 'static,
+{
   fn xdg_shell_state(&mut self) -> &mut XdgShellState {
-    &mut self.state.xdg_shell
+    &mut self.platform.state.state.xdg_shell
   }
 
   fn new_client(
@@ -78,10 +81,17 @@ impl XdgShellHandler for Glaze {
   fn new_toplevel(&mut self, surface: ToplevelSurface) {
     let window = Window::new_wayland_window(surface);
 
-    let native_window = NativeWindow::new(window);
-    let window = self.windows.new_window(native_window).clone();
+    let state = &mut self.platform.state;
 
-    self.space.map_element(window, (0, 0), false);
+    let native_window = NativeWindow::new(window);
+    let window = state.windows.new_window(native_window).clone();
+
+    state.space.map_element(window.clone(), (0, 0), false);
+
+    self
+      .handler
+      .window_event_handler()
+      .on_window_create(&mut self.user, &window);
   }
 
   fn new_popup(
@@ -89,8 +99,9 @@ impl XdgShellHandler for Glaze {
     surface: PopupSurface,
     _positioner: PositionerState,
   ) {
-    self.unconstrain_popup(&surface);
-    let _ = self.popups.track_popup(PopupKind::Xdg(surface));
+    let state = &mut self.platform.state;
+    state.unconstrain_popup(&surface);
+    let _ = state.popups.track_popup(PopupKind::Xdg(surface));
   }
 
   fn move_request(
@@ -99,6 +110,8 @@ impl XdgShellHandler for Glaze {
     seat: wl_seat::WlSeat,
     serial: Serial,
   ) {
+    let state = &mut self.platform.state;
+
     let seat = Seat::from_resource(&seat).unwrap();
 
     let wl_surface = surface.wl_surface();
@@ -106,14 +119,14 @@ impl XdgShellHandler for Glaze {
     if let Some(start_data) = check_grab(&seat, wl_surface, serial) {
       let pointer = seat.get_pointer().unwrap();
 
-      let window = self
+      let window = state
         .space
         .elements()
         .find(|w| w.toplevel().unwrap().wl_surface() == wl_surface)
         .unwrap()
         .clone();
       let initial_window_location =
-        self.space.element_location(&window).unwrap();
+        state.space.element_location(&window).unwrap();
 
       let grab = MoveSurfaceGrab {
         start_data,
@@ -132,6 +145,7 @@ impl XdgShellHandler for Glaze {
     serial: Serial,
     edges: xdg_toplevel::ResizeEdge,
   ) {
+    let state = &mut self.platform.state;
     let seat = Seat::from_resource(&seat).unwrap();
 
     let wl_surface = surface.wl_surface();
@@ -139,14 +153,14 @@ impl XdgShellHandler for Glaze {
     if let Some(start_data) = check_grab(&seat, wl_surface, serial) {
       let pointer = seat.get_pointer().unwrap();
 
-      let window = self
+      let window = state
         .space
         .elements()
         .find(|w| w.toplevel().unwrap().wl_surface() == wl_surface)
         .unwrap()
         .clone();
       let initial_window_location =
-        self.space.element_location(&window).unwrap();
+        state.space.element_location(&window).unwrap();
       let initial_window_size = window.geometry().size;
 
       surface.with_pending_state(|state| {
@@ -181,19 +195,31 @@ impl XdgShellHandler for Glaze {
       .capabilities
       .contains(xdg_toplevel::WmCapabilities::Maximize)
     {
-      if let Some(window) = self.windows.find_from_surface(&surface) {
-        let outputs = self.space.outputs_for_element(&window);
+      let state = &mut self.platform.state;
+      if let Some(window) = state.windows.find_from_surface(&surface) {
+        let outputs = state.space.outputs_for_element(window);
         let output = outputs
           .first()
-          .or_else(|| self.space.outputs().next())
+          .or_else(|| state.space.outputs().next())
           .expect("WM has no outputs");
-        let geometry = self.space.output_geometry(output).unwrap();
+        let geometry = state.space.output_geometry(output).unwrap();
 
         surface.with_pending_state(|state| {
           state.states.set(xdg_toplevel::State::Maximized);
           state.size = Some(geometry.size);
         });
       }
+    }
+
+    if let Some(window) =
+      self.platform.state.windows.find_from_surface(&surface)
+    {
+      self
+        .handler
+        .window_event_handler()
+        .on_window_maximized(&mut self.user, window);
+    } else {
+      tracing::warn!("Maximize request for a non-existing window");
     }
 
     if surface.is_initial_configure_sent() {
@@ -208,6 +234,18 @@ impl XdgShellHandler for Glaze {
       state.states.unset(xdg_toplevel::State::Maximized);
       state.size = None;
     });
+
+    if let Some(window) =
+      self.platform.state.windows.find_from_surface(&surface)
+    {
+      self
+        .handler
+        .window_event_handler()
+        .on_window_maximized_end(&mut self.user, window);
+    } else {
+      tracing::warn!("Unmaximize request for a non-existing window");
+    }
+
     surface.send_pending_configure();
   }
 
@@ -223,6 +261,8 @@ impl XdgShellHandler for Glaze {
       .capabilities
       .contains(xdg_toplevel::WmCapabilities::Fullscreen)
     {
+      let state = &mut self.platform.state;
+
       // NOTE: This is only one part of the solution. We can set the
       // location and configure size here, but the surface should be
       // rendered fullscreen independently from its buffer size
@@ -231,17 +271,21 @@ impl XdgShellHandler for Glaze {
       let output_geometry = fullscreen_output_geometry(
         wl_surface,
         wl_output.as_ref(),
-        &mut self.space,
+        &mut state.space,
       );
 
       if let Some(geometry) = output_geometry {
         let output = wl_output
           .as_ref()
           .and_then(Output::from_resource)
-          .unwrap_or_else(|| self.space.outputs().next().unwrap().clone());
+          .unwrap_or_else(|| {
+            state.space.outputs().next().unwrap().clone()
+          });
 
+        // False positive?
+        #[allow(clippy::manual_let_else)]
         let client = if let Ok(client) =
-          self.display_handle.get_client(wl_surface.id())
+          state.display_handle.get_client(wl_surface.id())
         {
           client
         } else {
@@ -251,7 +295,7 @@ impl XdgShellHandler for Glaze {
         for output in output.client_outputs(&client) {
           wl_output = Some(output);
         }
-        let window = self
+        let window = state
           .space
           .elements()
           .find(|window| {
@@ -286,18 +330,43 @@ impl XdgShellHandler for Glaze {
   }
 
   fn unfullscreen_request(&mut self, surface: ToplevelSurface) {
-    self
-      .windows
-      .find_from_surface(&surface)
-      .map(|window| window.mark_fullscreen(false));
-    surface.send_configure();
+    if !surface
+      .current_state()
+      .states
+      .contains(xdg_toplevel::State::Fullscreen)
+    {
+      return;
+    }
+
+    let ret = surface.with_pending_state(|state| {
+      state.states.unset(xdg_toplevel::State::Fullscreen);
+      state.size = None;
+      state.fullscreen_output.take()
+    });
+    if let Some(output) = ret {
+      let output = Output::from_resource(&output).unwrap();
+      if let Some(fullscreen) =
+        output.user_data().get::<FullscreenSurface>()
+      {
+        tracing::trace!("Unfullscreening: {:?}", fullscreen.get());
+        fullscreen.clear();
+
+        // From anvil, may be to do with udev?
+        // self.backend_data.reset_buffers(&output);
+      }
+    }
+
+    surface.send_pending_configure();
   }
 
   fn minimize_request(&mut self, surface: ToplevelSurface) {
-    if let Some(window) = self.windows.find_from_surface(&surface).cloned()
+    let state = &mut self.platform.state;
+
+    if let Some(window) =
+      state.windows.find_from_surface(&surface).cloned()
     {
-      self.space.unmap_elem(&window);
-      self.windows.window_minimize(&window);
+      state.space.unmap_elem(&window);
+      state.windows.window_minimize(&window);
     } else {
       tracing::warn!("Minimize request for a non-existing window");
     }
@@ -330,7 +399,7 @@ impl XdgShellHandler for Glaze {
       state.geometry = geometry;
       state.positioner = positioner;
     });
-    self.unconstrain_popup(&surface);
+    self.platform.state.unconstrain_popup(&surface);
     surface.send_repositioned(token);
   }
 
@@ -342,14 +411,12 @@ impl XdgShellHandler for Glaze {
 
   /// Called whenever a window is closed
   fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {
-    let window = self.windows.window_close(&surface);
+    let window = self.platform.state.windows.window_close(&surface);
 
-    if let Err(DispatchError::DispatchError(e)) = self
-      .hooks
-      .dispatch_window_event(crate::WindowEvent::WindowDestroyed(window))
-    {
-      tracing::error!("Failed to dispatch window closed event: {}", e);
-    }
+    self
+      .handler
+      .window_event_handler()
+      .on_window_destroy(&mut self.user, &window);
   }
 
   fn popup_destroyed(&mut self, _surface: PopupSurface) {}
@@ -361,14 +428,77 @@ impl XdgShellHandler for Glaze {
   fn parent_changed(&mut self, _surface: ToplevelSurface) {}
 }
 
-// Xdg Shell
-delegate_xdg_shell!(Glaze);
+/// Macro expansion of `xdg_shell_delegate`! since Data uses generics
+#[allow(clippy::semicolon_if_nothing_returned)]
+mod xdg_shell_delegate {
+  use smithay::reexports::wayland_server;
 
-fn check_grab(
-  seat: &Seat<Glaze>,
+  use crate::{Data, EventHandler};
+  impl<D: 'static, H: EventHandler<D> + 'static> wayland_server::GlobalDispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,()>for Data<D, H>{
+    fn bind(state: &mut Self,dhandle: &wayland_server::DisplayHandle,client: &wayland_server::Client,resource:wayland_server::New<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase>,global_data: &(),data_init: &mut wayland_server::DataInit<'_,Self>,){
+        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::GlobalDispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,(),Self>>::bind(state,dhandle,client,resource,global_data,data_init)
+    }
+    fn can_view(client:wayland_server::Client,global_data: &()) -> bool {
+        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::GlobalDispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,(),Self>>::can_view(client,global_data)
+    }
+
+    }
+  impl<D: 'static, H: EventHandler<D> + 'static> wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,smithay::wayland::shell::xdg::XdgWmBaseUserData>for Data<D, H>{
+    fn request(state: &mut Self,client: &wayland_server::Client,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,request: <smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase as wayland_server::Resource>::Request,data: &smithay::wayland::shell::xdg::XdgWmBaseUserData,dhandle: &wayland_server::DisplayHandle,data_init: &mut wayland_server::DataInit<'_,Self>,){
+        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,smithay::wayland::shell::xdg::XdgWmBaseUserData,Self>>::request(state,client,resource,request,data,dhandle,data_init)
+    }
+    fn destroyed(state: &mut Self,client:wayland_server::backend::ClientId,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,data: &smithay::wayland::shell::xdg::XdgWmBaseUserData){
+        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,smithay::wayland::shell::xdg::XdgWmBaseUserData,Self>>::destroyed(state,client,resource,data)
+    }
+
+    }
+  impl<D : 'static, H: EventHandler<D> + 'static> wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_positioner::XdgPositioner,smithay::wayland::shell::xdg::XdgPositionerUserData>for Data<D, H>{
+    fn request(state: &mut Self,client: &wayland_server::Client,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_positioner::XdgPositioner,request: <smithay::reexports::wayland_protocols::xdg::shell::server::xdg_positioner::XdgPositioner as wayland_server::Resource>::Request,data: &smithay::wayland::shell::xdg::XdgPositionerUserData,dhandle: &wayland_server::DisplayHandle,data_init: &mut wayland_server::DataInit<'_,Self>,){
+        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_positioner::XdgPositioner,smithay::wayland::shell::xdg::XdgPositionerUserData,Self>>::request(state,client,resource,request,data,dhandle,data_init)
+    }
+    fn destroyed(state: &mut Self,client:wayland_server::backend::ClientId,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_positioner::XdgPositioner,data: &smithay::wayland::shell::xdg::XdgPositionerUserData){
+        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_positioner::XdgPositioner,smithay::wayland::shell::xdg::XdgPositionerUserData,Self>>::destroyed(state,client,resource,data)
+    }
+
+    }
+  impl<D : 'static, H: EventHandler<D> + 'static> wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_popup::XdgPopup,smithay::wayland::shell::xdg::XdgShellSurfaceUserData>for Data<D, H>{
+    fn request(state: &mut Self,client: &wayland_server::Client,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_popup::XdgPopup,request: <smithay::reexports::wayland_protocols::xdg::shell::server::xdg_popup::XdgPopup as wayland_server::Resource>::Request,data: &smithay::wayland::shell::xdg::XdgShellSurfaceUserData,dhandle: &wayland_server::DisplayHandle,data_init: &mut wayland_server::DataInit<'_,Self>,){
+        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_popup::XdgPopup,smithay::wayland::shell::xdg::XdgShellSurfaceUserData,Self>>::request(state,client,resource,request,data,dhandle,data_init)
+    }
+    fn destroyed(state: &mut Self,client:wayland_server::backend::ClientId,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_popup::XdgPopup,data: &smithay::wayland::shell::xdg::XdgShellSurfaceUserData){
+        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_popup::XdgPopup,smithay::wayland::shell::xdg::XdgShellSurfaceUserData,Self>>::destroyed(state,client,resource,data)
+    }
+
+    }
+  impl<D : 'static, H: EventHandler<D> + 'static> wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface::XdgSurface,smithay::wayland::shell::xdg::XdgSurfaceUserData>for Data<D, H>{
+    fn request(state: &mut Self,client: &wayland_server::Client,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface::XdgSurface,request: <smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface::XdgSurface as wayland_server::Resource>::Request,data: &smithay::wayland::shell::xdg::XdgSurfaceUserData,dhandle: &wayland_server::DisplayHandle,data_init: &mut wayland_server::DataInit<'_,Self>,){
+        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface::XdgSurface,smithay::wayland::shell::xdg::XdgSurfaceUserData,Self>>::request(state,client,resource,request,data,dhandle,data_init)
+    }
+    fn destroyed(state: &mut Self,client:wayland_server::backend::ClientId,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface::XdgSurface,data: &smithay::wayland::shell::xdg::XdgSurfaceUserData){
+        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface::XdgSurface,smithay::wayland::shell::xdg::XdgSurfaceUserData,Self>>::destroyed(state,client,resource,data)
+    }
+
+    }
+  impl<D : 'static, H: EventHandler<D> + 'static> wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::XdgToplevel,smithay::wayland::shell::xdg::XdgShellSurfaceUserData>for Data<D, H>{
+    fn request(state: &mut Self,client: &wayland_server::Client,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::XdgToplevel,request: <smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::XdgToplevel as wayland_server::Resource>::Request,data: &smithay::wayland::shell::xdg::XdgShellSurfaceUserData,dhandle: &wayland_server::DisplayHandle,data_init: &mut wayland_server::DataInit<'_,Self>,){
+        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::XdgToplevel,smithay::wayland::shell::xdg::XdgShellSurfaceUserData,Self>>::request(state,client,resource,request,data,dhandle,data_init)
+    }
+    fn destroyed(state: &mut Self,client:wayland_server::backend::ClientId,resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::XdgToplevel,data: &smithay::wayland::shell::xdg::XdgShellSurfaceUserData){
+        <smithay::wayland::shell::xdg::XdgShellState as wayland_server::Dispatch<smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::XdgToplevel,smithay::wayland::shell::xdg::XdgShellSurfaceUserData,Self>>::destroyed(state,client,resource,data)
+    }
+
+    }
+}
+
+fn check_grab<D, H>(
+  seat: &Seat<Data<D, H>>,
   surface: &WlSurface,
   serial: Serial,
-) -> Option<PointerGrabStartData<Glaze>> {
+) -> Option<PointerGrabStartData<Data<D, H>>>
+where
+  D: 'static,
+  H: EventHandler<D> + 'static,
+{
   let pointer = seat.get_pointer()?;
 
   // Check that this surface has a click grab.
@@ -430,7 +560,10 @@ pub fn handle_commit(
   }
 }
 
-impl Glaze {
+impl<D, H> Glaze<D, H>
+where
+  H: EventHandler<D>,
+{
   fn unconstrain_popup(&self, popup: &PopupSurface) {
     let Ok(root) = find_popup_root_surface(&PopupKind::Xdg(popup.clone()))
     else {

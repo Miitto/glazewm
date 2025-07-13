@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use smithay::{
-  desktop::{Space, Window},
+  desktop::Space,
   input::pointer::{
     AxisFrame, ButtonEvent, GestureHoldBeginEvent, GestureHoldEndEvent,
     GesturePinchBeginEvent, GesturePinchEndEvent, GesturePinchUpdateEvent,
@@ -17,7 +17,7 @@ use smithay::{
   wayland::{compositor, shell::xdg::SurfaceCachedState},
 };
 
-use crate::{state::Glaze, NativeWindow};
+use crate::{Data, EventHandler, NativeWindow};
 
 bitflags::bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -42,8 +42,12 @@ impl From<xdg_toplevel::ResizeEdge> for ResizeEdge {
   }
 }
 
-pub struct ResizeSurfaceGrab {
-  start_data: PointerGrabStartData<Glaze>,
+pub struct ResizeSurfaceGrab<D, H>
+where
+  D: 'static,
+  H: EventHandler<D> + 'static,
+{
+  start_data: PointerGrabStartData<Data<D, H>>,
   window: NativeWindow,
 
   edges: ResizeEdge,
@@ -52,9 +56,12 @@ pub struct ResizeSurfaceGrab {
   last_window_size: Size<i32, Logical>,
 }
 
-impl ResizeSurfaceGrab {
+impl<D, H> ResizeSurfaceGrab<D, H>
+where
+  H: EventHandler<D>,
+{
   pub fn start(
-    start_data: PointerGrabStartData<Glaze>,
+    start_data: PointerGrabStartData<Data<D, H>>,
     window: NativeWindow,
     edges: ResizeEdge,
     initial_window_rect: Rectangle<i32, Logical>,
@@ -81,11 +88,16 @@ impl ResizeSurfaceGrab {
   }
 }
 
-impl PointerGrab<Glaze> for ResizeSurfaceGrab {
+impl<D, H> PointerGrab<Data<D, H>> for ResizeSurfaceGrab<D, H>
+where
+  D: 'static,
+  H: EventHandler<D>,
+{
+  #[allow(clippy::cast_possible_truncation)]
   fn motion(
     &mut self,
-    data: &mut Glaze,
-    handle: &mut PointerInnerHandle<'_, Glaze>,
+    data: &mut Data<D, H>,
+    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
     _focus: Option<(WlSurface, Point<f64, Logical>)>,
     event: &MotionEvent,
   ) {
@@ -103,7 +115,7 @@ impl PointerGrab<Glaze> for ResizeSurfaceGrab {
       }
 
       new_window_width =
-        (self.initial_rect.size.w as f64 + delta.x) as i32;
+        (f64::from(self.initial_rect.size.w) + delta.x) as i32;
     }
 
     if self.edges.intersects(ResizeEdge::TOP | ResizeEdge::BOTTOM) {
@@ -112,7 +124,7 @@ impl PointerGrab<Glaze> for ResizeSurfaceGrab {
       }
 
       new_window_height =
-        (self.initial_rect.size.h as f64 + delta.y) as i32;
+        (f64::from(self.initial_rect.size.h) + delta.y) as i32;
     }
 
     let (min_size, max_size) = compositor::with_states(
@@ -154,8 +166,8 @@ impl PointerGrab<Glaze> for ResizeSurfaceGrab {
 
   fn relative_motion(
     &mut self,
-    data: &mut Glaze,
-    handle: &mut PointerInnerHandle<'_, Glaze>,
+    data: &mut Data<D, H>,
+    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
     focus: Option<(WlSurface, Point<f64, Logical>)>,
     event: &RelativeMotionEvent,
   ) {
@@ -164,8 +176,8 @@ impl PointerGrab<Glaze> for ResizeSurfaceGrab {
 
   fn button(
     &mut self,
-    data: &mut Glaze,
-    handle: &mut PointerInnerHandle<'_, Glaze>,
+    data: &mut Data<D, H>,
+    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
     event: &ButtonEvent,
   ) {
     // The button is a button code as defined in the
@@ -197,103 +209,103 @@ impl PointerGrab<Glaze> for ResizeSurfaceGrab {
 
   fn axis(
     &mut self,
-    data: &mut Glaze,
-    handle: &mut PointerInnerHandle<'_, Glaze>,
+    data: &mut Data<D, H>,
+    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
     details: AxisFrame,
   ) {
-    handle.axis(data, details)
+    handle.axis(data, details);
   }
 
   fn frame(
     &mut self,
-    data: &mut Glaze,
-    handle: &mut PointerInnerHandle<'_, Glaze>,
+    data: &mut Data<D, H>,
+    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
   ) {
     handle.frame(data);
   }
 
   fn gesture_swipe_begin(
     &mut self,
-    data: &mut Glaze,
-    handle: &mut PointerInnerHandle<'_, Glaze>,
+    data: &mut Data<D, H>,
+    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
     event: &GestureSwipeBeginEvent,
   ) {
-    handle.gesture_swipe_begin(data, event)
+    handle.gesture_swipe_begin(data, event);
   }
 
   fn gesture_swipe_update(
     &mut self,
-    data: &mut Glaze,
-    handle: &mut PointerInnerHandle<'_, Glaze>,
+    data: &mut Data<D, H>,
+    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
     event: &GestureSwipeUpdateEvent,
   ) {
-    handle.gesture_swipe_update(data, event)
+    handle.gesture_swipe_update(data, event);
   }
 
   fn gesture_swipe_end(
     &mut self,
-    data: &mut Glaze,
-    handle: &mut PointerInnerHandle<'_, Glaze>,
+    data: &mut Data<D, H>,
+    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
     event: &GestureSwipeEndEvent,
   ) {
-    handle.gesture_swipe_end(data, event)
+    handle.gesture_swipe_end(data, event);
   }
 
   fn gesture_pinch_begin(
     &mut self,
-    data: &mut Glaze,
-    handle: &mut PointerInnerHandle<'_, Glaze>,
+    data: &mut Data<D, H>,
+    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
     event: &GesturePinchBeginEvent,
   ) {
-    handle.gesture_pinch_begin(data, event)
+    handle.gesture_pinch_begin(data, event);
   }
 
   fn gesture_pinch_update(
     &mut self,
-    data: &mut Glaze,
-    handle: &mut PointerInnerHandle<'_, Glaze>,
+    data: &mut Data<D, H>,
+    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
     event: &GesturePinchUpdateEvent,
   ) {
-    handle.gesture_pinch_update(data, event)
+    handle.gesture_pinch_update(data, event);
   }
 
   fn gesture_pinch_end(
     &mut self,
-    data: &mut Glaze,
-    handle: &mut PointerInnerHandle<'_, Glaze>,
+    data: &mut Data<D, H>,
+    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
     event: &GesturePinchEndEvent,
   ) {
-    handle.gesture_pinch_end(data, event)
+    handle.gesture_pinch_end(data, event);
   }
 
   fn gesture_hold_begin(
     &mut self,
-    data: &mut Glaze,
-    handle: &mut PointerInnerHandle<'_, Glaze>,
+    data: &mut Data<D, H>,
+    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
     event: &GestureHoldBeginEvent,
   ) {
-    handle.gesture_hold_begin(data, event)
+    handle.gesture_hold_begin(data, event);
   }
 
   fn gesture_hold_end(
     &mut self,
-    data: &mut Glaze,
-    handle: &mut PointerInnerHandle<'_, Glaze>,
+    data: &mut Data<D, H>,
+    handle: &mut PointerInnerHandle<'_, Data<D, H>>,
     event: &GestureHoldEndEvent,
   ) {
-    handle.gesture_hold_end(data, event)
+    handle.gesture_hold_end(data, event);
   }
 
-  fn start_data(&self) -> &PointerGrabStartData<Glaze> {
+  fn start_data(&self) -> &PointerGrabStartData<Data<D, H>> {
     &self.start_data
   }
 
-  fn unset(&mut self, _data: &mut Glaze) {}
+  fn unset(&mut self, _data: &mut Data<D, H>) {}
 }
 
 /// State of the resize operation.
 ///
-/// It is stored inside of WlSurface,
+/// It is stored inside of `WlSurface`,
 /// and can be accessed using [`ResizeSurfaceState::with`]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
 enum ResizeSurfaceState {

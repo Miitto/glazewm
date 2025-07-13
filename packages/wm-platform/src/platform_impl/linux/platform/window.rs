@@ -1,5 +1,6 @@
 //! Impls for [`PlatformData`] involving windows
 
 use super::PlatformData;
+use crate::EventHandler;
 
-impl PlatformData {}
+impl<D, H> PlatformData<D, H> where H: EventHandler<D> {}

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{any::Any, path::PathBuf};
 
 use anyhow::Context;
 use tracing_subscriber::{
@@ -7,6 +7,7 @@ use tracing_subscriber::{
 use wm_common::{AppCommand, Verbosity};
 use wm_platform::PlatformData;
 
+mod handlers;
 mod state;
 mod user_config;
 
@@ -50,15 +51,18 @@ async fn start_wm(
 
   let mut event_loop = wm_platform::calloop::EventLoop::try_new()?;
 
-  let platform_data = match PlatformData::setup_event_loop(&mut event_loop)
-  {
+  let handler = handlers::Handler::default();
+
+  let platform_data = match PlatformData::new(&mut event_loop) {
     Ok(data) => data,
     Err(e) => {
       anyhow::bail!("Failed to initialize platform data: {}", e);
     }
   };
 
-  let mut state = state::State::new(platform_data, config);
+  let state = state::State::new(config);
+
+  let mut data = wm_platform::Data::new(state, platform_data, handler);
 
   match std::process::Command::new("weston-terminal").spawn() {
     Ok(child) => {
@@ -69,7 +73,7 @@ async fn start_wm(
     }
   }
 
-  event_loop.run(None, &mut state, |data| {
+  event_loop.run(None, &mut data, |data| {
     if let Err(e) = data.platform.refresh() {
       tracing::error!("Failed to refresh platform state: {}", e);
     }

@@ -24,10 +24,14 @@ use smithay::{
   },
 };
 
-use super::{windows::Windows, Hooks, NativeWindow};
-use crate::EventLoopData;
+use super::{windows::Windows, NativeWindow};
+use crate::{Data, EventHandler};
 
-pub struct Glaze {
+pub struct Glaze<D, H>
+where
+  D: 'static,
+  H: EventHandler<D> + 'static,
+{
   pub start_time: std::time::Instant,
   pub clock: Clock<Monotonic>,
 
@@ -37,50 +41,55 @@ pub struct Glaze {
   pub space: Space<NativeWindow>,
   pub loop_signal: LoopSignal,
 
-  pub state: State,
+  pub state: State<D, H>,
 
   pub popups: PopupManager,
 
-  pub seat: Seat<Self>,
+  pub seat: Seat<Data<D, H>>,
 
   pub windows: Windows,
-  pub hooks: Hooks,
+  pub input: crate::input::InputData,
 }
 
-pub struct State {
+pub struct State<D, H>
+where
+  D: 'static,
+  H: EventHandler<D> + 'static,
+{
   pub compositor: CompositorState,
   pub xdg_shell: XdgShellState,
   pub shm: ShmState,
   pub output_manager: OutputManagerState,
-  pub seat: SeatState<Glaze>,
+  pub seat: SeatState<Data<D, H>>,
   pub data_device: DataDeviceState,
 }
 
-impl Glaze {
-  pub fn new<D>(
-    event_loop: &mut EventLoop<D>,
-    display: Display<Self>,
-  ) -> Self
-  where
-    D: EventLoopData,
-  {
+impl<D, H> Glaze<D, H>
+where
+  D: 'static,
+  H: EventHandler<D> + 'static,
+{
+  pub fn new(
+    event_loop: &mut EventLoop<Data<D, H>>,
+    display: Display<Data<D, H>>,
+  ) -> Self {
     let start_time = std::time::Instant::now();
 
     let dh = display.handle();
 
     // Compositor State
-    let compositor_state = CompositorState::new::<Self>(&dh);
+    let compositor_state = CompositorState::new::<Data<D, H>>(&dh);
     // State for desktop windows, and their popups
-    let xdg_shell_state = XdgShellState::new::<Self>(&dh);
+    let xdg_shell_state = XdgShellState::new::<Data<D, H>>(&dh);
     // Shared memory for the compositor and wayland clients
-    let shm_state = ShmState::new::<Self>(&dh, vec![]);
+    let shm_state = ShmState::new::<Data<D, H>>(&dh, vec![]);
     // An output is an area of space that the compositor uses, such as a
     // monitor. This uses the xdg-output extension
     let output_manager_state =
-      OutputManagerState::new_with_xdg_output::<Self>(&dh);
+      OutputManagerState::new_with_xdg_output::<Data<D, H>>(&dh);
     let seat_state = SeatState::new();
     // Copy-Paste and drag operations
-    let data_device_state = DataDeviceState::new::<Self>(&dh);
+    let data_device_state = DataDeviceState::new::<Data<D, H>>(&dh);
 
     let mut state = State {
       compositor: compositor_state,
@@ -96,7 +105,7 @@ impl Glaze {
     // A seat is a group of keyboards, pointer and touch devices.
     // A seat typically has a pointer and maintains a keyboard focus and a
     // pointer focus.
-    let mut seat: Seat<Self> = state.seat.new_wl_seat(&dh, "winit");
+    let mut seat: Seat<Data<D, H>> = state.seat.new_wl_seat(&dh, "winit");
 
     // Notify clients that we have a keyboard, for the sake of the example
     // we assume that keyboard is always present. You may want to track
@@ -135,17 +144,17 @@ impl Glaze {
       popups,
       seat,
       windows: Windows::default(),
-      hooks: Hooks::default(),
+      input: crate::input::InputData::default(),
     }
   }
 
   /// Connect wayland to the event loop
-  fn init_wayland_listener<D>(
-    display: Display<Glaze>,
-    event_loop: &mut EventLoop<D>,
+  fn init_wayland_listener(
+    display: Display<Data<D, H>>,
+    event_loop: &mut EventLoop<Data<D, H>>,
   ) -> OsString
   where
-    D: EventLoopData,
+    H: EventHandler<D> + 'static,
   {
     // Creates a new listening socket, automatically choosing the next
     // available `wayland` socket name.
@@ -167,7 +176,7 @@ impl Glaze {
         // You may also associate some data with the client when inserting
         // the client.
         state
-          .platform_data_mut()
+          .platform
           .display_handle
           .insert_client(client_stream, Arc::new(ClientState::default()))
           .unwrap();
@@ -179,14 +188,11 @@ impl Glaze {
     loop_handle
       .insert_source(
         Generic::new(display, Interest::READ, Mode::Level),
-        |_, display, state| {
+        |_, display, mut state| {
           // Safety: we don't drop the display
           // Dispatch wayland events to all clients
           unsafe {
-            display
-              .get_mut()
-              .dispatch_clients(&mut state.platform_data_mut().state)
-              .unwrap();
+            display.get_mut().dispatch_clients(&mut state).unwrap();
           }
           // Tell the event loop to continue
           Ok(PostAction::Continue)

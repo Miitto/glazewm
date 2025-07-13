@@ -55,5 +55,4 @@ impl LinuxKey {
   }
 }
 
-pub type NativeKey = LinuxKey;
 pub type NativeKeyCode = u32;

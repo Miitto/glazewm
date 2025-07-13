@@ -8,12 +8,10 @@ pub(crate) mod state;
 pub(crate) mod windows;
 pub(crate) mod winit;
 
-mod hooks;
-
 mod native_monitor;
+#[allow(clippy::module_inception)]
 mod platform;
 
-pub use hooks::*;
 pub use native_monitor::*;
 pub use native_window::*;
 pub use platform::*;

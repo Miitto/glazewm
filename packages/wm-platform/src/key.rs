@@ -504,6 +504,7 @@ impl Key {
   /// assert!(Key::Shift.is_analogous(Key::LShift));
   /// assert!(Key::LControl.is_analogous(Key::RControl) == false);
   /// ```
+  #[must_use]
   pub fn is_analogous(self, other: Key) -> bool {
     #[allow(clippy::match_same_arms)]
     match (self, other) {
@@ -518,6 +519,7 @@ impl Key {
   /// Returns whether the key is a generic key, such as `Shift`, `Control`,
   /// `Alt`, or `Win` instead of the more specific versions like
   /// `LShift`, `RShift`, etc.
+  #[must_use]
   pub fn is_generic(self) -> bool {
     matches!(self, Key::Shift | Key::Control | Key::Menu | Key::Win)
   }
@@ -526,6 +528,7 @@ impl Key {
   /// Special keys like `LShift`, `RShift`, `LControl`, `RControl` etc.
   /// will return the gereric Shift, Control, Alt, or Win key.
   /// Other keys will return themselves unchanged.
+  #[must_use]
   pub fn get_generic(self) -> Self {
     match self {
       Key::LShift | Key::RShift => Key::Shift,
@@ -540,6 +543,7 @@ impl Key {
   /// Generic keys like `Shift`, `Control`, `Alt`, and `Win` will return
   /// both the left and right versions of the key.
   /// Non-generic keys will return a vector containing just the key itself.
+  #[must_use]
   pub fn get_specifics(self) -> Vec<Key> {
     match self {
       Key::Shift => vec![Key::LShift, Key::RShift],
@@ -551,10 +555,30 @@ impl Key {
   }
 
   /// Gets whether this key is currently down.
+  #[must_use]
   pub fn is_down(self) -> bool {
     self
       .get_specifics()
       .iter()
       .any(|key| key.into_vk().is_down_raw())
   }
+}
+
+#[derive(Debug)]
+pub struct KeyData {
+  pub key: crate::Key,
+  pub pressed_keys: Vec<crate::Key>,
+}
+
+pub enum KeyResponse {
+  /// This key is irrelevant in the current context. Will forward any
+  /// ongoing combinations that have now been abandoned.
+  DontCare,
+
+  /// This key is part of an ongoing key combination. Suppress it for now
+  Combination,
+
+  /// Keybinding was triggered, will clear any ongoing combinations
+  /// without forwarding them.
+  Triggered,
 }

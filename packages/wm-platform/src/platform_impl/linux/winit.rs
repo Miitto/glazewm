@@ -14,7 +14,7 @@ use smithay::{
 };
 use thiserror::Error;
 
-use crate::{state::Glaze, EventLoopData, PlatformData};
+use crate::{Data, EventHandler, PlatformData};
 
 #[derive(Error, Debug)]
 pub enum WinitError {
@@ -33,12 +33,12 @@ pub enum WinitError {
 
 /// Creates an output window using `winit` to act as a virtual monitor.
 /// Used for testing
-pub fn init_winit<D>(
-  event_loop: &mut EventLoop<D>,
-  data: &mut PlatformData,
+pub fn init_winit<D, H>(
+  event_loop: &mut EventLoop<Data<D, H>>,
+  data: &mut PlatformData<D, H>,
 ) -> Result<(), WinitError>
 where
-  D: EventLoopData,
+  H: EventHandler<D>,
 {
   let display_handle = &mut data.display_handle;
   let state = &mut data.state;
@@ -59,7 +59,9 @@ where
       model: "Winit".into(),
     },
   );
-  let _global = output.create_global::<Glaze>(display_handle);
+  tracing::info!("Creating output: {:?}", output.name());
+  let _global = output.create_global::<Data<D, H>>(display_handle);
+  tracing::info!("Output global created");
   output.change_current_state(
     Some(mode),
     Some(Transform::Flipped180),
@@ -77,10 +79,7 @@ where
   event_loop
     .handle()
     .insert_source(winit, move |event, (), data| {
-      let data = data.platform_data_mut();
-
-      let display = &mut data.display_handle;
-      let state = &mut data.state;
+      let display = &mut data.platform.display_handle;
 
       match event {
         WinitEvent::Resized { size, .. } => {
@@ -94,7 +93,7 @@ where
             None,
           );
         }
-        WinitEvent::Input(event) => state.process_input_event(event),
+        WinitEvent::Input(event) => data.process_input_event(event),
         WinitEvent::Redraw => {
           let size = backend.window_size();
           let damage = Rectangle::from_size(size);
@@ -112,7 +111,7 @@ where
               &mut framebuffer,
               1.0,
               0,
-              [&state.space],
+              [&data.platform.state.space],
               &[],
               &mut damage_tracker,
               [0.1, 0.1, 0.1, 1.0],
@@ -121,24 +120,24 @@ where
           }
           backend.submit(Some(&[damage])).unwrap();
 
-          state.space.elements().for_each(|window| {
+          data.platform.state.space.elements().for_each(|window| {
             window.send_frame(
               &output,
-              state.start_time.elapsed(),
+              data.platform.state.start_time.elapsed(),
               Some(Duration::ZERO),
               |_, _| Some(output.clone()),
             );
           });
 
-          state.space.refresh();
-          state.popups.cleanup();
+          data.platform.state.space.refresh();
+          data.platform.state.popups.cleanup();
           let _ = display.flush_clients();
 
           // Ask for redraw to schedule new frame.
           backend.window().request_redraw();
         }
         WinitEvent::CloseRequested => {
-          state.loop_signal.stop();
+          data.platform.state.loop_signal.stop();
         }
         WinitEvent::Focus(_f) => {}
       }

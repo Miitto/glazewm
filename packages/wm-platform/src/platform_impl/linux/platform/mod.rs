@@ -1,7 +1,7 @@
 use smithay::reexports::wayland_server::{Display, DisplayHandle};
 
 use super::winit::WinitError;
-use crate::{state::Glaze, EventLoopData};
+use crate::{state::Glaze, Data, EventHandler};
 
 mod mouse;
 mod window;
@@ -14,19 +14,23 @@ pub enum InitError {
   Handle(#[from] WinitError),
 }
 
-pub struct PlatformData {
-  pub state: Glaze,
+pub struct PlatformData<D, H>
+where
+  D: 'static,
+  H: EventHandler<D> + 'static,
+{
+  pub state: Glaze<D, H>,
   pub display_handle: DisplayHandle,
 }
 
-impl PlatformData {
-  pub fn setup_event_loop<D>(
-    event_loop: &mut calloop::EventLoop<D>,
-  ) -> Result<Self, InitError>
-  where
-    D: EventLoopData,
-  {
-    let display: Display<Glaze> = Display::new()?;
+impl<D, H> PlatformData<D, H>
+where
+  H: EventHandler<D> + 'static,
+{
+  pub fn new(
+    event_loop: &mut calloop::EventLoop<Data<D, H>>,
+  ) -> Result<Self, InitError> {
+    let display: Display<Data<D, H>> = Display::new()?;
     let handle = display.handle();
     let state = Glaze::new(event_loop, display);
 
